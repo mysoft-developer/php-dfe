@@ -12,12 +12,10 @@ while (ob_get_level() > 0) {
     ob_end_flush();
 }
 
-ob_implicit_flush(true);
+ob_implicit_flush(1);
 
 header('Content-Type: text/html; charset=utf-8');
-header('Cache-Control: no-cache, no-store, must-revalidate');
-header('Pragma: no-cache');
-header('Expires: 0');
+header('Cache-Control: private, max-age=600');
 header('X-Accel-Buffering: no');
 
 $arquivoConfiguracao = __DIR__ . '/config.json';
@@ -26,7 +24,6 @@ $arquivoConfiguracao = __DIR__ . '/config.json';
 $arquivoLogPhp = __DIR__ . '/consultar_notas.log';
 ini_set('log_errors', '1');
 ini_set('error_log', $arquivoLogPhp);
-
 
 function sairComErro(string $mensagem): void
 {
@@ -230,7 +227,9 @@ echo '  var tdQuantidade = document.createElement("td");';
 echo '  var link = document.createElement("a");';
 echo '  link.className = "link-quantidade";';
 echo '  link.textContent = quantidade;';
-echo '  link.href = "consultar_notas_detalhes.php?s=" + encodeURIComponent(indiceServidor) + "&db=" + encodeURIComponent(database) + "&dias=" + encodeURIComponent(diasConsulta);';
+echo '  link.href = "consultar_notas_detalhes.php?s=" + encodeURIComponent(indiceServidor) + "&db=" + encodeURIComponent(database) + "&dias=" + encodeURIComponent(diasConsulta);
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";';
 echo '  tdQuantidade.appendChild(link);';
 echo '  tr.appendChild(tdQuantidade);';
 echo '  tbody.appendChild(tr);';
@@ -385,7 +384,7 @@ foreach ($servidores as $indiceServidor => $servidor) {
             SELECT COUNT(*) AS quantidade
             FROM `{$nomeBancoEscapado}`.`notas_fiscais_eletronicas` a
             INNER JOIN `{$nomeBancoEscapado}`.`notas_fiscais` b
-                ON a.idt = b.idt
+                ON a.idt = b.idt and a.origem=b.origem
             WHERE a.status NOT IN (100, 150, 101, 102)
               AND b.emissao >= DATE_SUB(NOW(), INTERVAL {$diasConsulta} DAY)
         ";

@@ -100,15 +100,19 @@ function carregarLinhasProblema(mysqli $conexao, string $nomeBanco, int $diasCon
     $sqlDetalhes = "
         SELECT
             a.idt,
+            b.emissao,
+            b.hora AS hora,
             a.nota,
             a.serie,
             a.modelo,
             a.origem,
+            a.operacao,
             a.status,
             a.status_descricao
         FROM `{$nomeBancoEscapado}`.`notas_fiscais_eletronicas` a
         INNER JOIN `{$nomeBancoEscapado}`.`notas_fiscais` b
             ON a.idt = b.idt
+           AND a.origem = b.origem
         WHERE a.status NOT IN (100, 150, 101, 102)
           AND b.emissao >= DATE_SUB(NOW(), INTERVAL {$diasConsultaSql} DAY)
         ORDER BY b.emissao DESC, a.idt DESC
@@ -123,10 +127,13 @@ function carregarLinhasProblema(mysqli $conexao, string $nomeBanco, int $diasCon
     while ($linha = $resultado->fetch_assoc()) {
         $linhas[] = [
             'idt' => listarValor($linha, ['idt']),
+            'emissao' => listarValor($linha, ['emissao']),
+            'hora' => listarValor($linha, ['hora']),
             'nota' => listarValor($linha, ['nota']),
             'serie' => listarValor($linha, ['serie']),
             'modelo' => listarValor($linha, ['modelo']),
             'origem' => listarValor($linha, ['origem']),
+            'operacao' => listarValor($linha, ['operacao']),
             'status' => listarValor($linha, ['status']),
             'descricao' => listarValor($linha, ['status_descricao'])
         ];
@@ -137,7 +144,7 @@ function carregarLinhasProblema(mysqli $conexao, string $nomeBanco, int $diasCon
     return $linhas;
 }
 
-function buscarNotaPorIdt(mysqli $conexao, string $database, int|string $idt): array
+function buscarNotaPorIdt(mysqli $conexao, string $database, $idt): array
 {
     $idt = (string) $idt;
     $databaseEscapado = str_replace('`', '``', $database);
@@ -146,13 +153,19 @@ function buscarNotaPorIdt(mysqli $conexao, string $database, int|string $idt): a
     $sql = "
         SELECT
             a.idt,
+            b.emissao,
+            b.hora AS hora,
             a.nota,
             a.serie,
             a.modelo,
             a.origem,
+            a.operacao,
             a.status,
             a.status_descricao
         FROM `{$databaseEscapado}`.`notas_fiscais_eletronicas` a
+        INNER JOIN `{$databaseEscapado}`.`notas_fiscais` b
+            ON a.idt = b.idt
+           AND a.origem = b.origem
         WHERE a.idt = '{$idtEscapado}'
         LIMIT 1
     ";
@@ -172,10 +185,13 @@ function buscarNotaPorIdt(mysqli $conexao, string $database, int|string $idt): a
 
     return [
         'idt' => listarValor($linha, ['idt']),
+        'emissao' => listarValor($linha, ['emissao']),
+        'hora' => listarValor($linha, ['hora']),
         'nota' => listarValor($linha, ['nota']),
         'serie' => listarValor($linha, ['serie']),
         'modelo' => listarValor($linha, ['modelo']),
         'origem' => listarValor($linha, ['origem']),
+        'operacao' => listarValor($linha, ['operacao']),
         'status' => listarValor($linha, ['status']),
         'descricao' => listarValor($linha, ['status_descricao'])
     ];
@@ -261,7 +277,23 @@ function iniciarProcessoAutonfe(
         2 => ['pipe', 'w']
     ];
 
-    $processo = @proc_open($comando, $descritores, $pipes, $diretorioTrabalho !== '' ? $diretorioTrabalho : null);
+    //$processo = @proc_open($comando, $descritores, $pipes, $diretorioTrabalho !== '' ? $diretorioTrabalho : null);
+
+    $ambiente = null;
+    $plataforma = detectarPlataformaAutonfe();
+
+    if ($plataforma === 'linux' || $plataforma === 'linux_arm') {
+        $ambiente = $_ENV;
+        $ambiente['DISPLAY'] = ':99';
+    }
+
+    $processo = @proc_open(
+        $comando,
+        $descritores,
+        $pipes,
+        $diretorioTrabalho !== '' ? $diretorioTrabalho : null,
+        $ambiente
+    );
 
     if ($chdirAplicado && $cwdAnterior !== false) {
         @chdir($cwdAnterior);
@@ -306,6 +338,92 @@ function fecharPipesProcesso(array $pipes): void
         }
     }
 }
+
+
+function obterArquivoExecucoesAtivas(int $indiceServidor, string $nomeBanco): string
+{
+    $base = 'consultar_notas_execucoes_' . $indiceServidor . '_' . md5($nomeBanco) . '.json';
+    return rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $base;
+}
+
+function lerExecucoesAtivas(string $arquivo): array
+{
+    if (!file_exists($arquivo)) {
+        return [];
+    }
+
+    $conteudo = @file_get_contents($arquivo);
+    if ($conteudo === false || $conteudo === '') {
+        return [];
+    }
+
+    $dados = json_decode($conteudo, true);
+    if (!is_array($dados)) {
+        return [];
+    }
+
+    $execucoes = [];
+    foreach ($dados as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+
+        $idt = isset($item['idt']) ? trim((string) $item['idt']) : '';
+        $acao = isset($item['acao']) ? trim((string) $item['acao']) : '';
+
+        if ($idt === '' || $acao === '') {
+            continue;
+        }
+
+        $execucoes[] = [
+            'idt' => $idt,
+            'acao' => $acao
+        ];
+    }
+
+    return array_slice($execucoes, 0, 10);
+}
+
+function salvarExecucoesAtivas(string $arquivo, array $execucoes): void
+{
+    @file_put_contents($arquivo, json_encode(array_values($execucoes), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+}
+
+function registrarExecucaoAtiva(string $arquivo, string $idt, string $acao): void
+{
+    $execucoes = lerExecucoesAtivas($arquivo);
+    $novasExecucoes = [];
+
+    foreach ($execucoes as $item) {
+        if ((string) $item['idt'] === $idt) {
+            continue;
+        }
+        $novasExecucoes[] = $item;
+    }
+
+    $novasExecucoes[] = [
+        'idt' => $idt,
+        'acao' => $acao
+    ];
+
+    salvarExecucoesAtivas($arquivo, array_slice($novasExecucoes, 0, 10));
+}
+
+function removerExecucaoAtiva(string $arquivo, string $idt): void
+{
+    $execucoes = lerExecucoesAtivas($arquivo);
+    $novasExecucoes = [];
+
+    foreach ($execucoes as $item) {
+        if ((string) $item['idt'] === $idt) {
+            continue;
+        }
+        $novasExecucoes[] = $item;
+    }
+
+    salvarExecucoesAtivas($arquivo, $novasExecucoes);
+}
+
 
 if (!file_exists($arquivoConfiguracao)) {
     sairComErro('Arquivo config.json não encontrado.');
@@ -360,6 +478,14 @@ if ($identificacao === '' || $endereco === '') {
     sairComErro('Configuração do servidor inválida.');
 }
 
+$arquivoExecucoesAtivas = obterArquivoExecucoesAtivas($indiceServidor, $nomeBanco);
+
+if (isset($_GET['ajax_execucoes']) && (string) $_GET['ajax_execucoes'] === '1') {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['execucoes' => lerExecucoesAtivas($arquivoExecucoesAtivas)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 $mysqlUsuario = (string) $configuracao['mysql_usuario'];
 $mysqlSenha = (string) $configuracao['mysql_senha'];
 
@@ -412,17 +538,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mensagemExecucao = 'Executável do AutoNFe não encontrado em: ' . $caminhoAutonfe;
             $classeMensagem = 'erro';
         } else {
+            salvarExecucoesAtivas($arquivoExecucoesAtivas, []);
+
             $linhasPorIdt = [];
             foreach ($linhas as $linha) {
                 $linhasPorIdt[(string) $linha['idt']] = $linha;
             }
 
             $fila = [];
+            $idtsBloqueadosOffline = [];
+
             foreach ($idtsSelecionados as $idtSelecionado) {
                 $idtSelecionado = (string) $idtSelecionado;
                 $modeloAtual = isset($linhasPorIdt[$idtSelecionado]['modelo']) ? (string) $linhasPorIdt[$idtSelecionado]['modelo'] : '65';
                 if ($modeloAtual === '') {
                     $modeloAtual = '65';
+                }
+
+                if ($acao === 'acerto_w' && $modeloAtual === '55') {
+                    $idtsBloqueadosOffline[] = $idtSelecionado;
+
+                    if (isset($linhasPorIdt[$idtSelecionado])) {
+                        $linhasPorIdt[$idtSelecionado]['destacar_vermelho'] = '1';
+                        $linhasPorIdt[$idtSelecionado]['descricao'] = 'Ação Offline não permitida para notas do modelo 55.';
+                    }
+
+                    $resultadosExecucao[] = [
+                        'idt' => $idtSelecionado,
+                        'acao' => $acao,
+                        'codigo_retorno' => -1,
+                        'comando' => '',
+                        'saida' => 'Ação Offline não permitida para notas do modelo 55.'
+                    ];
+                    continue;
                 }
 
                 $fila[] = [
@@ -458,6 +606,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'saida' => (string) $iniciado['erro']
                         ];
                     } else {
+                        registrarExecucaoAtiva($arquivoExecucoesAtivas, (string) $itemFila['idt'], $acao);
+
                         $ativos[] = [
                             'idt' => (string) $itemFila['idt'],
                             'modelo' => (string) $itemFila['modelo'],
@@ -537,9 +687,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $notaAtualizada = buscarNotaPorIdt($conexao, $nomeBanco, (string) $ativo['idt']);
                     if (count($notaAtualizada) > 0) {
-                        $linhasResultado[] = $notaAtualizada;
+                        $statusAtualizado = (string) $notaAtualizada['status'];
+
+                        if (in_array($statusAtualizado, ['100', '101', '102', '150'], true)) {
+                            $linhasResultado[] = $notaAtualizada;
+                            $idtsProcessados[(string) $ativo['idt']] = true;
+                        } else {
+                            $notaAtualizada['destacar_vermelho'] = '1';
+                            $linhasPorIdt[(string) $ativo['idt']] = $notaAtualizada;
+                        }
                     }
-                    $idtsProcessados[(string) $ativo['idt']] = true;
+
+                    removerExecucaoAtiva($arquivoExecucoesAtivas, (string) $ativo['idt']);
 
                     $resultadosExecucao[] = [
                         'idt' => (string) $ativo['idt'],
@@ -558,8 +717,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach (array_keys($idtsProcessados) as $idtProcessado) {
                 unset($linhasPorIdt[(string) $idtProcessado]);
             }
+            salvarExecucoesAtivas($arquivoExecucoesAtivas, []);
             $linhas = array_values($linhasPorIdt);
-            $mensagemExecucao = 'Ação ' . $acao . ' executada para ' . count($idtsSelecionados) . ' nota(s).';
+
+            $quantidadeExecutada = count($idtsSelecionados) - count($idtsBloqueadosOffline);
+            if ($acao === 'acerto_w' && count($idtsBloqueadosOffline) > 0) {
+                $mensagemExecucao = 'Ação ' . $acao . ' executada para ' . $quantidadeExecutada . ' nota(s). ' . count($idtsBloqueadosOffline) . ' nota(s) modelo 55 foram bloqueadas no Offline.';
+            } else {
+                $mensagemExecucao = 'Ação ' . $acao . ' executada para ' . count($idtsSelecionados) . ' nota(s).';
+            }
             $classeMensagem = 'ok';
         }
     }
@@ -578,8 +744,8 @@ echo 'html, body { height:100%; margin:0; }';
 echo 'body { background:#111; color:#eee; font-family:Arial,Helvetica,sans-serif; overflow:hidden; }';
 echo '.pagina { display:flex; flex-direction:column; height:100vh; }';
 echo '.topo-fixo { flex:0 0 auto; padding:16px 20px 12px 20px; background:#111; border-bottom:1px solid #2b2b2b; }';
-echo '.topo-grid { display:grid; grid-template-columns: 40% 60%; gap:16px; align-items:stretch; }';
-echo '.painel-acoes, .info { padding:10px 12px; background:#1a1a1a; border:1px solid #333; border-radius:6px; box-sizing:border-box; }';
+echo '.topo-grid { display:grid; grid-template-columns: minmax(0,40fr) minmax(0,28fr) minmax(0,32fr); gap:16px; align-items:stretch; }';
+echo '.painel-acoes, .info, .execucoes-box { padding:10px 12px; background:#1a1a1a; border:1px solid #333; border-radius:6px; box-sizing:border-box; }';
 echo '.painel-acoes { min-height:160px; display:flex; flex-direction:column; justify-content:flex-start; }';
 echo '.painel-acoes .acoes { margin-top:0; display:grid; grid-template-columns: repeat(3, minmax(110px, 1fr)); gap:12px; align-content:start; }';
 echo '.painel-acoes .acoes .botao { width:100%; min-width:0; min-height:48px; }';
@@ -591,9 +757,18 @@ echo '.painel-filtro input[type=text]:focus { border-color:#666; }';
 echo '.topo-fixo h2 { margin:0 0 10px 0; }';
 echo '.info { padding:10px 12px; background:#1a1a1a; border:1px solid #333; border-radius:6px; }';
 echo '.info div { padding:2px 0; }';
+echo '.execucoes-box { min-height:160px; display:flex; flex-direction:column; }';
+echo '.execucoes-box h3 { margin:0 0 10px 0; font-size:18px; }';
+echo '.execucoes-box table { width:100%; border-collapse:collapse; table-layout:fixed; background:#141414; }';
+echo '.execucoes-box th, .execucoes-box td { border:1px solid #2d2d2d; padding:7px 8px; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }';
+echo '.execucoes-box thead th { position:static; top:auto; z-index:auto; background:#202020; }';
+echo '.col-idt-mini { width:20%; }';
+echo '.col-acao-mini { width:30%; }';
+
 echo '.acoes { margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }';
 echo '.botao { display:inline-flex; flex-direction:column; align-items:center; justify-content:center; padding:8px 12px; background:#222; color:#fff; text-decoration:none; border:1px solid #444; border-radius:6px; cursor:pointer; line-height:1.2; min-width:110px; }';
 echo '.botao:hover { background:#2c2c2c; }';
+echo '.botao:disabled, .botao.botao-desabilitado { background:#1a1a1a !important; color:#888 !important; border-color:#333 !important; cursor:not-allowed !important; opacity:0.75; }';
 echo '.botao small { font-size:12px; font-weight:normal; }';
 echo '.botao.oculto { display:none; }';
 echo '.mensagem { margin-top:10px; padding:10px 12px; background:#1a1a1a; border:1px solid #333; border-radius:6px; }';
@@ -605,11 +780,17 @@ echo 'th, td { border:1px solid #333; padding:10px; text-align:left; }';
 echo 'thead th { background:#222; color:#fff; position:sticky; top:0; z-index:2; }';
 echo 'tr:nth-child(even) td { background:#151515; }';
 echo 'tr:hover td { background:#1d1d1d; }';
+echo 'tr.linha-modelo-65 td { background:#13223a; color:#bcd7ff; }';
+echo 'tr.linha-modelo-65:hover td { background:#1a2d4b; color:#d6e6ff; }';
+echo 'tr.linha-problema td { background:#3a1515 !important; color:#ffb3b3 !important; }';
+echo 'tr.linha-problema:hover td { background:#4a1b1b !important; }';
 echo '.mensagem-vazia { padding:12px; background:#1a1a1a; border:1px solid #333; border-radius:6px; color:#ccc; }';
 echo '.col-selecao { width:95px; text-align:center; }';
-echo '.col-idt { width:120px; }';
-echo '.col-curta { width:90px; }';
-echo '.col-status { width:120px; }';
+echo '.col-idt { width:120px; white-space:nowrap; }';
+echo '.col-emissao { width:120px; white-space:nowrap; }';
+echo '.col-curta { width:90px; white-space:nowrap; }';
+echo '.col-status { width:90px; white-space:nowrap; }';
+echo '.col-descricao { width:auto; }';
 echo 'input[type=checkbox] { transform:scale(1.15); }';
 echo '.check-actions { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:6px; }';
 echo '.check-link { color:#ddd; text-decoration:underline; cursor:pointer; font-size:12px; }';
@@ -686,7 +867,22 @@ echo '    }';
 echo '  }';
 echo '  atualizarCheckTopo();';
 echo '}';
+echo 'var envioEmAndamento = false;';
+echo 'function definirEstadoAcoesBloqueadas(bloquear) {';
+echo '  var botoes = document.querySelectorAll(".painel-acoes .botao[type=submit], .painel-acoes button.botao");';
+echo '  for (var i = 0; i < botoes.length; i++) {';
+echo '    botoes[i].disabled = bloquear ? true : false;';
+echo '    if (bloquear) {';
+echo '      botoes[i].classList.add("botao-desabilitado");';
+echo '    } else {';
+echo '      botoes[i].classList.remove("botao-desabilitado");';
+echo '    }';
+echo '  }';
+echo '}';
 echo 'function validarEnvio(acao) {';
+echo '  if (envioEmAndamento) {';
+echo '    return false;';
+echo '  }';
 echo '  var selecionados = document.querySelectorAll(".check-nota:checked");';
 echo '  if (selecionados.length === 0) {';
 echo '    alert("Selecione pelo menos uma nota.");';
@@ -694,6 +890,7 @@ echo '    return false;';
 echo '  }';
 echo '  var campoAcao = document.getElementById("acaoFormulario");';
 echo '  if (campoAcao) { campoAcao.value = acao; }';
+echo '  envioEmAndamento = true;';
 echo '  return true;';
 echo '}';
 echo 'document.addEventListener("change", function(e) {';
@@ -703,7 +900,59 @@ echo '  }';
 echo '});';
 echo 'document.addEventListener("DOMContentLoaded", function() {';
 echo '  atualizarCheckTopo();';
+echo '  iniciarMonitorExecucoesAtivas();';
 echo '});';
+
+echo 'var urlExecucoesAtivas = "consultar_notas_detalhes.php?ajax_execucoes=1&s=' . $indiceServidor . '&db=' . rawurlencode($nomeBanco) . '&dias=' . $diasConsulta . '";';
+echo 'var intervaloExecucoesAtivas = null;';
+echo 'function renderizarExecucoesAtivas(execucoes) {';
+echo '  var corpo = document.getElementById("execucoesAtivasBody");';
+echo '  if (!corpo) { return; }';
+echo '  execucoes = Array.isArray(execucoes) ? execucoes.slice(0, 10) : [];';
+echo '  var html = "";';
+echo '  for (var i = 0; i < 5; i++) {';
+echo '    var esquerda = execucoes[i] || null;';
+echo '    var direita = execucoes[i + 5] || null;';
+echo '    html += "<tr>";';
+echo '    html += esquerda ? ("<td class=\"col-idt-mini\">" + String(esquerda.idt || "") + "</td><td class=\"col-acao-mini\">" + String(esquerda.acao || "") + "</td>") : "<td class=\"col-idt-mini\"></td><td class=\"col-acao-mini\"></td>";';
+echo '    html += direita ? ("<td class=\"col-idt-mini\">" + String(direita.idt || "") + "</td><td class=\"col-acao-mini\">" + String(direita.acao || "") + "</td>") : "<td class=\"col-idt-mini\"></td><td class=\"col-acao-mini\"></td>";';
+echo '    html += "</tr>";';
+echo '  }';
+echo '  corpo.innerHTML = html;';
+echo '}';
+echo 'function atualizarExecucoesAtivas() {';
+echo '  fetch(urlExecucoesAtivas, { cache: "no-store" })';
+echo '    .then(function(resposta) { return resposta.json(); })';
+echo '    .then(function(dados) { renderizarExecucoesAtivas(dados.execucoes || []); })';
+echo '    .catch(function() {});';
+echo '}';
+echo 'function iniciarMonitorExecucoesAtivas() {';
+echo '  if (intervaloExecucoesAtivas) { clearInterval(intervaloExecucoesAtivas); }';
+echo '  atualizarExecucoesAtivas();';
+echo '  intervaloExecucoesAtivas = setInterval(atualizarExecucoesAtivas, 700);';
+echo '}';
+echo 'function enviarFormularioAjax(evento) {';
+echo '  if (evento && evento.preventDefault) { evento.preventDefault(); }';
+echo '  if (!envioEmAndamento) { return false; }';
+echo '  var formulario = document.getElementById("formNotas");';
+echo '  if (!formulario) {';
+echo '    envioEmAndamento = false;';
+echo '    definirEstadoAcoesBloqueadas(false);';
+echo '    return false;';
+echo '  }';
+echo '  definirEstadoAcoesBloqueadas(true);';
+echo '  var dados = new FormData(formulario);';
+echo '  fetch(window.location.href, { method: "POST", body: dados, cache: "no-store" })';
+echo '    .then(function(resposta) { return resposta.text(); })';
+echo '    .then(function(html) { document.open(); document.write(html); document.close(); })';
+echo '    .catch(function() {';
+echo '      envioEmAndamento = false;';
+echo '      definirEstadoAcoesBloqueadas(false);';
+echo '      alert("Erro ao executar a ação.");';
+echo '    });';
+echo '  return false;';
+echo '}';
+
 echo '</script>';
 echo '</head>';
 echo '<body>';
@@ -714,7 +963,7 @@ echo '<h2>Notas com problema</h2>';
 echo '<div class="topo-grid">';
 echo '<div class="painel-acoes">';
 if (count($linhas) > 0) {
-    echo '<form method="post" action="">';
+    echo '<form id="formNotas" method="post" action="" onsubmit="return enviarFormularioAjax(event)">';
     echo '<input type="hidden" id="acaoFormulario" name="acao" value="">';
     echo '<input type="hidden" name="s" value="' . $indiceServidor . '">';
     echo '<input type="hidden" name="db" value="' . htmlspecialchars($nomeBanco, ENT_QUOTES, 'UTF-8') . '">';
@@ -724,10 +973,10 @@ if (count($linhas) > 0) {
     echo '<input id="filtroDescricao" type="text" autocomplete="off" oninput="aplicarFiltroDescricao()" placeholder="Digite para filtrar pela descrição">';
     echo '</div>';
     echo '<div class="acoes">';
-    echo '<a class="botao" href="consultar_notas.php"><span>Nova</span><small>consulta</small></a>';
+
+    echo '<button class="botao" type="submit" onclick="return validarEnvio(\'acerto_w\');"><span>Offline</span><small>(acerto_w)</small></button>';    
     echo '<button class="botao" type="submit" onclick="return validarEnvio(\'consultarX\');"><span>Consultar</span><small>(consultarX)</small></button>';
     echo '<button class="botao" type="submit" onclick="return validarEnvio(\'enviarX\');"><span>Enviar</span><small>(enviarX)</small></button>';
-    echo '<button class="botao" type="submit" onclick="return validarEnvio(\'acerto_w\');"><span>Offline</span><small>(acerto_w)</small></button>';
     echo '<button class="botao" type="submit" onclick="return validarEnvio(\'acerto_v\');"><span>Normal</span><small>(acerto_v)</small></button>';
     echo '<button class="botao" type="submit" onclick="return validarEnvio(\'cancelarX\');"><span>Cancelar</span><small>(cancelarX)</small></button>';
     echo '<button class="botao" type="submit" onclick="return validarEnvio(\'inutilizarX\');"><span>Inutilizar</span><small>(inutilizarX)</small></button>';
@@ -735,8 +984,7 @@ if (count($linhas) > 0) {
     echo '</div>';
 } else {
     echo '<div class="acoes">';
-    echo '<a class="botao" href="consultar_notas.php"><span>Nova</span><small>consulta</small></a>';
-    echo '</div>';
+        echo '</div>';
 }
 echo '</div>';
 echo '<div class="info">';
@@ -747,6 +995,24 @@ echo '<div><b>Total de notas:</b> ' . count($linhas) . '</div>';
 echo '<div><b>Dias da consulta:</b> ' . $diasConsulta . '</div>';
 echo '<div><b>MySQL versão:</b> ' . $versaoMysql . '</div>';
 echo '<div><b>Plataforma AutoNFe:</b> ' . htmlspecialchars(detectarPlataformaAutonfe(), ENT_QUOTES, 'UTF-8') . '</div>';
+echo '</div>';
+echo '<div class="execucoes-box">';
+echo '<h3>Ações em execução</h3>';
+echo '<table>';
+echo '<thead>';
+echo '<tr>';
+echo '<th class="col-idt-mini">IDT</th>';
+echo '<th class="col-acao-mini">Ação</th>';
+echo '<th class="col-idt-mini">IDT</th>';
+echo '<th class="col-acao-mini">Ação</th>';
+echo '</tr>';
+echo '</thead>';
+echo '<tbody id="execucoesAtivasBody">';
+for ($i = 0; $i < 5; $i++) {
+    echo '<tr><td class="col-idt-mini"></td><td class="col-acao-mini"></td><td class="col-idt-mini"></td><td class="col-acao-mini"></td></tr>';
+}
+echo '</tbody>';
+echo '</table>';
 echo '</div>';
 echo '</div>';
 if ($mensagemExecucao !== '') {
@@ -759,8 +1025,7 @@ echo '<div class="area-tabela">';
 if (count($linhas) === 0) {
     echo '<div class="acoes" style="margin-bottom:12px;">';
     echo '<a class="botao" href="javascript:history.back()">Voltar</a>';
-    echo '<a class="botao" href="consultar_notas.php"><span>Nova</span><small>consulta</small></a>';
-    echo '</div>';
+        echo '</div>';
     echo '<div class="mensagem-vazia">Nenhuma nota com problema foi encontrada para este database.</div>';
 } else {
     echo '<table>';
@@ -774,26 +1039,40 @@ if (count($linhas) === 0) {
     echo '</div>';
     echo '</th>';
     echo '<th class="col-idt">IDT</th>';
+    echo '<th class="col-emissao">Emissão</th>';
+    echo '<th class="col-curta">Hora</th>';
     echo '<th class="col-curta">Nota</th>';
     echo '<th class="col-curta">Série</th>';
     echo '<th class="col-curta">Modelo</th>';
-    echo '<th>Origem</th>';
+    echo '<th class="col-curta">Origem</th>';
+    echo '<th class="col-curta">Operação</th>';
     echo '<th class="col-status">Status</th>';
-    echo '<th>Descrição</th>';
+    echo '<th class="col-descricao">Descrição</th>';
     echo '</tr>';
     echo '</thead>';
     echo '<tbody>';
 
     foreach ($linhas as $linha) {
-        echo '<tr data-descricao="' . htmlspecialchars((string) $linha['descricao'], ENT_QUOTES, 'UTF-8') . '">';
+        $classesLinha = [];
+        if ((string) ($linha['modelo'] ?? '') === '65') {
+            $classesLinha[] = 'linha-modelo-65';
+        }
+        if (!empty($linha['destacar_vermelho'])) {
+            $classesLinha[] = 'linha-problema';
+        }
+        $classeLinha = count($classesLinha) > 0 ? ' class="' . implode(' ', $classesLinha) . '"' : '';
+        echo '<tr' . $classeLinha . ' data-descricao="' . htmlspecialchars((string) $linha['descricao'], ENT_QUOTES, 'UTF-8') . '">';
         echo '<td class="col-selecao"><input class="check-nota" type="checkbox" name="idts[]" value="' . htmlspecialchars((string) $linha['idt'], ENT_QUOTES, 'UTF-8') . '"></td>';
-        echo '<td>' . htmlspecialchars((string) $linha['idt'], ENT_QUOTES, 'UTF-8') . '</td>';
-        echo '<td>' . htmlspecialchars((string) $linha['nota'], ENT_QUOTES, 'UTF-8') . '</td>';
-        echo '<td>' . htmlspecialchars((string) $linha['serie'], ENT_QUOTES, 'UTF-8') . '</td>';
-        echo '<td>' . htmlspecialchars((string) $linha['modelo'], ENT_QUOTES, 'UTF-8') . '</td>';
-        echo '<td>' . htmlspecialchars((string) $linha['origem'], ENT_QUOTES, 'UTF-8') . '</td>';
-        echo '<td>' . htmlspecialchars((string) $linha['status'], ENT_QUOTES, 'UTF-8') . '</td>';
-        echo '<td>' . htmlspecialchars((string) $linha['descricao'], ENT_QUOTES, 'UTF-8') . '</td>';
+        echo '<td class="col-idt">' . htmlspecialchars((string) $linha['idt'], ENT_QUOTES, 'UTF-8') . '</td>';
+        echo '<td class="col-emissao">' . htmlspecialchars((string) $linha['emissao'], ENT_QUOTES, 'UTF-8') . '</td>';
+        echo '<td class="col-curta">' . htmlspecialchars((string) $linha['hora'], ENT_QUOTES, 'UTF-8') . '</td>';
+        echo '<td class="col-curta">' . htmlspecialchars((string) $linha['nota'], ENT_QUOTES, 'UTF-8') . '</td>';
+        echo '<td class="col-curta">' . htmlspecialchars((string) $linha['serie'], ENT_QUOTES, 'UTF-8') . '</td>';
+        echo '<td class="col-curta">' . htmlspecialchars((string) $linha['modelo'], ENT_QUOTES, 'UTF-8') . '</td>';
+        echo '<td class="col-curta">' . htmlspecialchars((string) $linha['origem'], ENT_QUOTES, 'UTF-8') . '</td>';
+        echo '<td class="col-curta">' . htmlspecialchars((string) $linha['operacao'], ENT_QUOTES, 'UTF-8') . '</td>';
+        echo '<td class="col-status">' . htmlspecialchars((string) $linha['status'], ENT_QUOTES, 'UTF-8') . '</td>';
+        echo '<td class="col-descricao">' . htmlspecialchars((string) $linha['descricao'], ENT_QUOTES, 'UTF-8') . '</td>';
         echo '</tr>';
     }
 
@@ -808,24 +1087,31 @@ if (count($linhas) === 0) {
         echo '<thead>';
         echo '<tr>';
         echo '<th class="col-idt">IDT</th>';
+        echo '<th class="col-emissao">Emissão</th>';
+        echo '<th class="col-curta">Hora</th>';
         echo '<th class="col-curta">Nota</th>';
         echo '<th class="col-curta">Série</th>';
         echo '<th class="col-curta">Modelo</th>';
-        echo '<th>Origem</th>';
+        echo '<th class="col-curta">Origem</th>';
+        echo '<th class="col-curta">Operação</th>';
         echo '<th class="col-status">Status</th>';
-        echo '<th>Descrição</th>';
+        echo '<th class="col-descricao">Descrição</th>';
         echo '</tr>';
         echo '</thead>';
         echo '<tbody>';
         foreach ($linhasResultado as $linhaResultado) {
-            echo '<tr>';
-            echo '<td>' . htmlspecialchars((string) $linhaResultado['idt'], ENT_QUOTES, 'UTF-8') . '</td>';
-            echo '<td>' . htmlspecialchars((string) $linhaResultado['nota'], ENT_QUOTES, 'UTF-8') . '</td>';
-            echo '<td>' . htmlspecialchars((string) $linhaResultado['serie'], ENT_QUOTES, 'UTF-8') . '</td>';
-            echo '<td>' . htmlspecialchars((string) $linhaResultado['modelo'], ENT_QUOTES, 'UTF-8') . '</td>';
-            echo '<td>' . htmlspecialchars((string) $linhaResultado['origem'], ENT_QUOTES, 'UTF-8') . '</td>';
-            echo '<td>' . htmlspecialchars((string) $linhaResultado['status'], ENT_QUOTES, 'UTF-8') . '</td>';
-            echo '<td>' . htmlspecialchars((string) $linhaResultado['descricao'], ENT_QUOTES, 'UTF-8') . '</td>';
+            $classeLinhaResultado = ((string) ($linhaResultado['modelo'] ?? '') === '65') ? ' class="linha-modelo-65"' : '';
+            echo '<tr' . $classeLinhaResultado . '>';
+            echo '<td class="col-idt">' . htmlspecialchars((string) $linhaResultado['idt'], ENT_QUOTES, 'UTF-8') . '</td>';
+            echo '<td class="col-emissao">' . htmlspecialchars((string) $linhaResultado['emissao'], ENT_QUOTES, 'UTF-8') . '</td>';
+            echo '<td class="col-curta">' . htmlspecialchars((string) $linhaResultado['hora'], ENT_QUOTES, 'UTF-8') . '</td>';
+            echo '<td class="col-curta">' . htmlspecialchars((string) $linhaResultado['nota'], ENT_QUOTES, 'UTF-8') . '</td>';
+            echo '<td class="col-curta">' . htmlspecialchars((string) $linhaResultado['serie'], ENT_QUOTES, 'UTF-8') . '</td>';
+            echo '<td class="col-curta">' . htmlspecialchars((string) $linhaResultado['modelo'], ENT_QUOTES, 'UTF-8') . '</td>';
+            echo '<td class="col-curta">' . htmlspecialchars((string) $linhaResultado['origem'], ENT_QUOTES, 'UTF-8') . '</td>';
+            echo '<td class="col-curta">' . htmlspecialchars((string) $linhaResultado['operacao'], ENT_QUOTES, 'UTF-8') . '</td>';
+            echo '<td class="col-status">' . htmlspecialchars((string) $linhaResultado['status'], ENT_QUOTES, 'UTF-8') . '</td>';
+            echo '<td class="col-descricao">' . htmlspecialchars((string) $linhaResultado['descricao'], ENT_QUOTES, 'UTF-8') . '</td>';
             echo '</tr>';
         }
         echo '</tbody>';
