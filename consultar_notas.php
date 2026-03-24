@@ -12,7 +12,11 @@ while (ob_get_level() > 0) {
     ob_end_flush();
 }
 
-ob_implicit_flush(1);
+if (PHP_VERSION_ID >= 80000) {
+    ob_implicit_flush(true);
+} else {
+    ob_implicit_flush(1);
+}
 
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: private, max-age=600');
@@ -41,6 +45,12 @@ function sairComErro(string $mensagem): void
     echo '</style>';
     echo '</head>';
     echo '<body>';
+echo '<div class="overlay-processando" id="overlayProcessando">';
+echo '<div class="overlay-box">';
+echo '<strong>Consultando bancos</strong>';
+echo '<span id="textoOverlayProcessando">Aguarde...</span>';
+echo '</div>';
+echo '</div>';
     echo '<div class="erro-wrap">';
     echo '<div class="erro-box">ERRO: ' . htmlspecialchars($mensagem, ENT_QUOTES, 'UTF-8') . '</div>';
     echo '</div>';
@@ -141,9 +151,9 @@ if (
 }
 
 $filtroDatabase = isset($_GET['database']) ? trim((string)$_GET['database']) : '';
-$diasConsulta = isset($_GET['dias']) ? (int)$_GET['dias'] : 90;
+$diasConsulta = isset($_GET['dias']) ? (int)$_GET['dias'] : 7;
 if ($diasConsulta <= 0) {
-    $diasConsulta = 90;
+    $diasConsulta = 7;
 }
 $executarConsulta = isset($_GET['consultar']) && $_GET['consultar'] === '1';
 
@@ -195,8 +205,23 @@ echo '.ok { color:#c8f7c5; }';
 echo '.erro { color:#ffb3b3; }';
 echo '.link-quantidade { color:inherit; font-weight:bold; text-decoration:underline; }';
 echo '.link-quantidade:hover { opacity:0.9; }';
+echo '.overlay-processando { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:none; align-items:center; justify-content:center; z-index:9999; }';
+echo '.overlay-processando.ativo { display:flex; }';
+echo '.overlay-box { min-width:320px; max-width:520px; padding:18px 22px; background:#1a1a1a; border:1px solid #3a3a3a; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.45); text-align:center; }';
+echo '.overlay-box strong { display:block; font-size:18px; color:#fff; margin-bottom:8px; }';
+echo '.overlay-box span { color:#cfcfcf; }';
 echo '</style>';
 echo '<script>';
+echo 'function mostrarOverlayProcessando(texto) {';
+echo '  var overlay = document.getElementById("overlayProcessando");';
+echo '  var textoOverlay = document.getElementById("textoOverlayProcessando");';
+echo '  if (textoOverlay && typeof texto !== "undefined") { textoOverlay.textContent = texto; }';
+echo '  if (overlay) { overlay.className = "overlay-processando ativo"; }';
+echo '}';
+echo 'function ocultarOverlayProcessando() {';
+echo '  var overlay = document.getElementById("overlayProcessando");';
+echo '  if (overlay) { overlay.className = "overlay-processando"; }';
+echo '}';
 echo 'function atualizarStatus(texto) {';
 echo '  document.getElementById("statusAtual").textContent = texto;';
 echo '}';
@@ -227,9 +252,7 @@ echo '  var tdQuantidade = document.createElement("td");';
 echo '  var link = document.createElement("a");';
 echo '  link.className = "link-quantidade";';
 echo '  link.textContent = quantidade;';
-echo '  link.href = "consultar_notas_detalhes.php?s=" + encodeURIComponent(indiceServidor) + "&db=" + encodeURIComponent(database) + "&dias=" + encodeURIComponent(diasConsulta);
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";';
+echo '  link.href = "consultar_notas_detalhes.php?s=" + encodeURIComponent(indiceServidor) + "&db=" + encodeURIComponent(database) + "&dias=" + encodeURIComponent(diasConsulta);';
 echo '  tdQuantidade.appendChild(link);';
 echo '  tr.appendChild(tdQuantidade);';
 echo '  tbody.appendChild(tr);';
@@ -245,7 +268,7 @@ echo '<h2>Consulta de notas fiscais</h2>';
 echo '<div class="inicio">Início da página: ' . htmlspecialchars(date('d/m/Y H:i:s'), ENT_QUOTES, 'UTF-8') . '</div>';
 
 echo '<div class="filtros">';
-echo '<form method="get" action="">';
+echo '<form method="get" action="" onsubmit="mostrarOverlayProcessando(\'Consultando bancos, aguarde...\')">';
 echo '<input type="hidden" name="consultar" value="1">';
 echo '<div class="filtro-campo">';
 echo '<label for="database">Database (like)</label>';
@@ -268,6 +291,10 @@ if ($executarConsulta) {
 }
 
 echo '<div class="status" id="statusAtual">' . htmlspecialchars($textoStatusInicial, ENT_QUOTES, 'UTF-8') . '</div>';
+if ($executarConsulta) {
+    echo '<script>mostrarOverlayProcessando("Consultando bancos, aguarde...");</script>';
+    enviarSaida();
+}
 echo '<div class="resumo">';
 echo '<div><b>Filtro database:</b> ' . htmlspecialchars($filtroDatabase !== '' ? $filtroDatabase : '(todos)', ENT_QUOTES, 'UTF-8') . '</div>';
 echo '<div><b>Dias da consulta:</b> ' . $diasConsulta . '</div>';
@@ -442,6 +469,7 @@ error_log('CONSULTAR_NOTAS finalizada bases=' . $totalBasesComNotas . ' ok=' . $
 
 echo '<script>';
 echo 'atualizarStatus(' . jsTexto('Consulta finalizada.') . ');';
+echo 'ocultarOverlayProcessando();';
 echo 'atualizarResumo('
     . $totalBasesComNotas . ','
     . $totalConsultasOk . ','

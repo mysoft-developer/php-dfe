@@ -450,10 +450,10 @@ if (
 
 $indiceServidor = isset($_REQUEST['s']) ? (int) $_REQUEST['s'] : -1;
 $nomeBanco = isset($_REQUEST['db']) ? trim((string) $_REQUEST['db']) : '';
-$diasConsulta = isset($_REQUEST['dias']) ? (int) $_REQUEST['dias'] : 90;
+$diasConsulta = isset($_REQUEST['dias']) ? (int) $_REQUEST['dias'] : 7;
 
 if ($diasConsulta <= 0) {
-    $diasConsulta = 90;
+    $diasConsulta = 7;
 }
 
 if ($indiceServidor < 0 || $nomeBanco === '') {
