@@ -24,8 +24,6 @@ header('Cache-Control: private, max-age=600');
 header('X-Accel-Buffering: no');
 
 $arquivoConfiguracao = __DIR__ . '/config.json';
-
-
 $arquivoLogPhp = __DIR__ . '/consultar_notas.log';
 ini_set('log_errors', '1');
 ini_set('error_log', $arquivoLogPhp);
@@ -46,154 +44,12 @@ function sairComErro(string $mensagem): void
     echo '</style>';
     echo '</head>';
     echo '<body>';
-echo '<div class="overlay-processando" id="overlayProcessando">';
-echo '<div class="overlay-box">';
-echo '<strong>Consultando bancos</strong>';
-echo '<span id="textoOverlayProcessando">Aguarde...</span>';
-echo '</div>';
-echo '</div>';
     echo '<div class="erro-wrap">';
     echo '<div class="erro-box">ERRO: ' . htmlspecialchars($mensagem, ENT_QUOTES, 'UTF-8') . '</div>';
     echo '</div>';
     echo '</body>';
     echo '</html>';
     exit;
-}
-
-function enviarSaida(): void
-{
-    echo str_repeat(' ', 8192);
-    @ob_flush();
-    @flush();
-}
-
-function jsTexto(string $texto): string
-{
-    return json_encode($texto, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-}
-
-function listarBancos(mysqli $conexao, string $filtroDatabase = ''): array
-{
-    $bancos = [];
-
-    if ($filtroDatabase !== '') {
-        $sql = '
-            SELECT schema_name
-            FROM information_schema.schemata
-            WHERE schema_name LIKE ?
-            ORDER BY schema_name
-        ';
-
-        $stmt = $conexao->prepare($sql);
-        if ($stmt === false) {
-            return $bancos;
-        }
-
-        $like = '%' . $filtroDatabase . '%';
-        $stmt->bind_param('s', $like);
-        $ok = $stmt->execute();
-
-        if ($ok === false) {
-            $stmt->close();
-            return $bancos;
-        }
-
-        $resultado = $stmt->get_result();
-        if ($resultado !== false) {
-            while ($linha = $resultado->fetch_row()) {
-                if (isset($linha[0])) {
-                    $bancos[] = (string)$linha[0];
-                }
-            }
-            $resultado->free();
-        }
-
-        $stmt->close();
-
-        return $bancos;
-    }
-
-    $resultado = $conexao->query('SHOW DATABASES');
-
-    if ($resultado === false) {
-        return $bancos;
-    }
-
-    while ($linha = $resultado->fetch_row()) {
-        if (isset($linha[0])) {
-            $bancos[] = (string)$linha[0];
-        }
-    }
-
-    $resultado->free();
-
-    return $bancos;
-}
-
-function tabelaExiste(mysqli $conexao, string $nomeBanco, string $nomeTabela): bool
-{
-    $sql = "
-        SELECT COUNT(*) AS quantidade
-        FROM information_schema.tables
-        WHERE table_schema = ?
-          AND table_name = ?
-    ";
-
-    $stmt = $conexao->prepare($sql);
-    if ($stmt === false) {
-        return false;
-    }
-
-    $stmt->bind_param('ss', $nomeBanco, $nomeTabela);
-    $ok = $stmt->execute();
-
-    if ($ok === false) {
-        $stmt->close();
-        return false;
-    }
-
-    $resultado = $stmt->get_result();
-    $existe = false;
-
-    if ($resultado !== false) {
-        $linha = $resultado->fetch_assoc();
-        $existe = isset($linha['quantidade']) && (int)$linha['quantidade'] > 0;
-        $resultado->free();
-    }
-
-    $stmt->close();
-
-    return $existe;
-}
-
-function criarConexaoMysql(string $endereco, string $usuario, string $senha, int $porta)
-{
-    $conexao = mysqli_init();
-    if ($conexao === false) {
-        return false;
-    }
-
-    if (defined('MYSQLI_OPT_CONNECT_TIMEOUT')) {
-        @mysqli_options($conexao, MYSQLI_OPT_CONNECT_TIMEOUT, 120);
-    }
-
-    if (defined('MYSQLI_OPT_READ_TIMEOUT')) {
-        @mysqli_options($conexao, MYSQLI_OPT_READ_TIMEOUT, 600);
-    }
-
-    $ok = @mysqli_real_connect($conexao, $endereco, $usuario, $senha, '', $porta);
-    if ($ok !== true) {
-        @mysqli_close($conexao);
-        return false;
-    }
-
-    @$conexao->set_charset('utf8mb4');
-    @$conexao->query('SET SESSION wait_timeout = 28800');
-    @$conexao->query('SET SESSION net_read_timeout = 600');
-    @$conexao->query('SET SESSION net_write_timeout = 600');
-    @$conexao->query('SET SESSION innodb_lock_wait_timeout = 600');
-
-    return $conexao;
 }
 
 if (!file_exists($arquivoConfiguracao)) {
@@ -226,21 +82,25 @@ if ($diasConsulta <= 0) {
 }
 $executarConsulta = isset($_GET['consultar']) && $_GET['consultar'] === '1';
 
-error_log('CONSULTAR_NOTAS pagina iniciada. executar=' . ($executarConsulta ? '1' : '0') . ' database=' . $filtroDatabase . ' dias=' . $diasConsulta);
+$servidoresFront = [];
+foreach ($configuracao['servidores'] as $indiceServidor => $servidor) {
+    if (!is_array($servidor)) {
+        continue;
+    }
 
-$mysqlUsuario = (string)$configuracao['mysql_usuario'];
-$mysqlSenha = (string)$configuracao['mysql_senha'];
-$servidores = $configuracao['servidores'];
+    $servidoresFront[] = [
+        'indiceServidor' => (string)$indiceServidor,
+        'identificacao' => isset($servidor['identificacao']) ? trim((string)$servidor['identificacao']) : '',
+        'endereco' => isset($servidor['endereco']) ? trim((string)$servidor['endereco']) : '',
+        'porta' => isset($servidor['porta']) ? (string)((int)$servidor['porta']) : '3306',
+    ];
+}
 
-$totalConsultasOk = 0;
-$totalConsultasErro = 0;
-$totalQuantidadeNotas = 0;
-$totalBasesComNotas = 0;
 $textoStatusInicial = $executarConsulta
-    ? 'Preparando consulta...'
+    ? 'Preparando consulta concorrente...'
     : 'Preencha os filtros desejados e clique em Consultar.';
 
-mysqli_report(MYSQLI_REPORT_OFF);
+error_log('CONSULTAR_NOTAS pagina iniciada. executar=' . ($executarConsulta ? '1' : '0') . ' database=' . $filtroDatabase . ' dias=' . $diasConsulta);
 
 ?>
 <!doctype html>
@@ -408,6 +268,10 @@ body {
     cursor: pointer;
 }
 .botao:hover { filter: brightness(1.06); }
+.botao:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
 .telemetry {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -584,34 +448,6 @@ body {
     text-align: center;
     border-top: 1px solid var(--line);
 }
-.overlay-processando {
-    position: fixed;
-    inset: 0;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    background: rgba(3, 5, 8, 0.72);
-    backdrop-filter: blur(12px);
-    z-index: 9999;
-}
-.overlay-processando.ativo { display: flex; }
-.overlay-box {
-    width: min(460px, calc(100vw - 36px));
-    padding: 22px 24px;
-    border-radius: 22px;
-    border: 1px solid rgba(83, 167, 255, 0.26);
-    background: rgba(10, 16, 26, 0.96);
-    box-shadow: var(--shadow);
-    text-align: left;
-}
-.overlay-box strong {
-    display: block;
-    margin-bottom: 8px;
-    font-size: 20px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-.overlay-box span { color: var(--muted); }
 @media (max-width: 1200px) {
     .telemetry { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -639,7 +475,18 @@ var ESTADO_RESUMO = {
     cacheKey: null,
     consultando: false,
     persistenciaPendente: null,
-    recebeuOnline: false
+    recebeuOnline: false,
+    consulta: {
+        totalServidores: 0,
+        servidoresFinalizados: 0,
+        bancosDescobertos: 0,
+        bancosProcessados: 0,
+        bancosIgnorados: 0,
+        ativos: 0,
+        fila: 0,
+        finalizado: false,
+        iniciadaEm: null
+    }
 };
 var FILTRO_DATABASE_RESUMO = <?= json_encode(strtolower($filtroDatabase), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?> || '';
 var CANAL_ATUALIZACAO_RESUMO = 'consulta_erros_nfe_resumo';
@@ -648,9 +495,15 @@ var canalResumoAtualizacao = null;
 var DB_UI_NFE = 'consulta_erros_nfe_ui';
 var DB_VERSAO_UI_NFE = 2;
 var dbUiPromise = null;
+var EXECUTAR_CONSULTA_INICIAL = <?= $executarConsulta ? 'true' : 'false' ?>;
+var DIAS_CONSULTA_ATUAL = <?= (int) $diasConsulta ?>;
+var LIMITE_CONCORRENCIA_BANCOS = 4;
+var LIMITE_CONCORRENCIA_SERVIDORES = 2;
+var URL_WORKER_RESUMO = 'consultar_notas_worker.php';
+var SERVIDORES_RESUMO = <?= json_encode($servidoresFront, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 function obterChaveResumoLocal() {
     var filtro = <?= json_encode($filtroDatabase, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?> || '';
-    return 'resumo::' + window.location.pathname + '::' + filtro.toLowerCase() + '::' + <?= (int) $diasConsulta ?>;
+    return 'resumo::' + window.location.pathname + '::' + filtro.toLowerCase() + '::' + DIAS_CONSULTA_ATUAL;
 }
 function abrirBancoUi() {
     if (!window.indexedDB) {
@@ -720,23 +573,6 @@ function escaparHtml(texto) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
 }
-function mostrarOverlayProcessando(texto) {
-    var overlay = document.getElementById('overlayProcessando');
-    var textoOverlay = document.getElementById('textoOverlayProcessando');
-    if (textoOverlay && typeof texto !== 'undefined') {
-        textoOverlay.textContent = texto;
-    }
-    if (overlay) {
-        overlay.className = 'overlay-processando ativo';
-    }
-    atualizarIndicadorCache('Consulta online em andamento', 'cache-online');
-}
-function ocultarOverlayProcessando() {
-    var overlay = document.getElementById('overlayProcessando');
-    if (overlay) {
-        overlay.className = 'overlay-processando';
-    }
-}
 function atualizarIndicadorCache(texto, classe) {
     var badge = document.getElementById('origemDados');
     if (!badge) { return; }
@@ -749,11 +585,9 @@ function atualizarStatus(texto) {
         el.textContent = texto;
     }
 }
-
 function marcarAtualizacaoOnline() {
     ESTADO_RESUMO.recebeuOnline = true;
 }
-
 function atualizarMensagemVazia() {
     var box = document.getElementById('mensagemVazia');
     if (!box) { return; }
@@ -822,6 +656,20 @@ function htmlLinhaResumo(linha) {
         '<td class="col-quantidade"><a class="link-quantidade" href="' + escaparHtml(url) + '" target="_blank" rel="noopener noreferrer" onclick="window.open(this.href, \"_blank\", \"noopener,noreferrer\"); return false;">' + escaparHtml(linha.quantidade) + '</a></td>' +
         '</tr>';
 }
+function compararTextoOrdenacao(a, b) {
+    var textoA = String(a == null ? '' : a).toLowerCase();
+    var textoB = String(b == null ? '' : b).toLowerCase();
+    return textoA.localeCompare(textoB, 'pt-BR', { numeric: true, sensitivity: 'base' });
+}
+function ordenarLinhasResumo() {
+    ESTADO_RESUMO.linhas.sort(function(a, b) {
+        var comparacao = compararTextoOrdenacao(a.database, b.database);
+        if (comparacao !== 0) {
+            return comparacao;
+        }
+        return compararTextoOrdenacao(a.servidor, b.servidor);
+    });
+}
 function renderizarTabelaResumo() {
     var corpo = document.getElementById('corpoTabela');
     if (!corpo) { return; }
@@ -830,6 +678,7 @@ function renderizarTabelaResumo() {
         atualizarMensagemVazia();
         return;
     }
+    ordenarLinhasResumo();
     var html = '';
     for (var i = 0; i < ESTADO_RESUMO.linhas.length; i++) {
         html += htmlLinhaResumo(ESTADO_RESUMO.linhas[i]);
@@ -852,7 +701,7 @@ function persistirResumoAgora() {
         resumo: ESTADO_RESUMO.resumo,
         atualizadoEm: new Date().toISOString(),
         filtroDatabase: <?= json_encode($filtroDatabase, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
-        diasConsulta: <?= (int) $diasConsulta ?>
+        diasConsulta: DIAS_CONSULTA_ATUAL
     }).then(function(ok) {
         if (!ok || ESTADO_RESUMO.consultando) {
             return;
@@ -888,12 +737,22 @@ function adicionarResultado(servidor, endereco, porta, database, quantidade, cla
     atualizarIndicadorCache('Resultados online + cache local', 'cache-online');
     persistirResumoDebounce();
 }
-
+function removerResultado(indiceServidor, database, porta) {
+    var chave = [String(indiceServidor || ''), String(database || '').toLowerCase(), String(porta || '')].join('::');
+    for (var i = 0; i < ESTADO_RESUMO.linhas.length; i++) {
+        if (obterChaveLinhaResumo(ESTADO_RESUMO.linhas[i]) === chave) {
+            ESTADO_RESUMO.linhas.splice(i, 1);
+            break;
+        }
+    }
+    renderizarTabelaResumo();
+    persistirResumoDebounce();
+}
 function atualizarLinhaResumoPorEvento(payload) {
     if (!payload || String(payload.tipo || '') !== 'quantidade_detalhes_atualizada') {
         return;
     }
-    if (Number(payload.diasConsulta || 0) !== <?= (int) $diasConsulta ?>) {
+    if (Number(payload.diasConsulta || 0) !== DIAS_CONSULTA_ATUAL) {
         return;
     }
     if (!databaseCombinaComFiltroAtual(payload.database || '')) {
@@ -972,19 +831,7 @@ function carregarResumoDoCache() {
             ESTADO_RESUMO.resumo.erro = Number(registro.resumo.erro || 0);
             ESTADO_RESUMO.resumo.total = Number(registro.resumo.total || 0);
             ESTADO_RESUMO.resumo.fim = registro.resumo.fim || '-';
-            var mapa = {
-                totalBasesComNotas: ESTADO_RESUMO.resumo.bases,
-                totalConsultasOk: ESTADO_RESUMO.resumo.ok,
-                totalConsultasErro: ESTADO_RESUMO.resumo.erro,
-                totalQuantidadeNotas: ESTADO_RESUMO.resumo.total,
-                fimExecucao: ESTADO_RESUMO.resumo.fim
-            };
-            Object.keys(mapa).forEach(function(id) {
-                var el = document.getElementById(id);
-                if (el) {
-                    el.textContent = mapa[id];
-                }
-            });
+            aplicarResumoNaTela();
         }
         renderizarTabelaResumo();
         if (ESTADO_RESUMO.linhas.length > 0) {
@@ -995,13 +842,243 @@ function carregarResumoDoCache() {
         }
     });
 }
+function formatarHorarioAgora() {
+    var agora = new Date();
+    var pad = function(valor) { return String(valor).padStart(2, '0'); };
+    return pad(agora.getDate()) + '/' + pad(agora.getMonth() + 1) + '/' + agora.getFullYear() + ' ' + pad(agora.getHours()) + ':' + pad(agora.getMinutes()) + ':' + pad(agora.getSeconds());
+}
+function atualizarStatusConsulta() {
+    var c = ESTADO_RESUMO.consulta;
+    if (!ESTADO_RESUMO.consultando && !c.finalizado) {
+        return;
+    }
+    if (c.finalizado) {
+        atualizarStatus('Consulta finalizada. Servidores: ' + c.servidoresFinalizados + '/' + c.totalServidores + ' | Bancos processados: ' + c.bancosProcessados + '/' + c.bancosDescobertos + ' | Ignorados: ' + c.bancosIgnorados + '.');
+        return;
+    }
+    atualizarStatus(
+        'Consultando sem travar a tela. ' +
+        'Servidores: ' + c.servidoresFinalizados + '/' + c.totalServidores +
+        ' | Bancos descobertos: ' + c.bancosDescobertos +
+        ' | Processados: ' + c.bancosProcessados +
+        ' | Em execução: ' + c.ativos +
+        ' | Na fila: ' + c.fila +
+        ' | Ignorados: ' + c.bancosIgnorados
+    );
+}
+function reiniciarConsultaNaTela() {
+    ESTADO_RESUMO.consultando = true;
+    ESTADO_RESUMO.recebeuOnline = false;
+    ESTADO_RESUMO.linhas = [];
+    ESTADO_RESUMO.resumo = {
+        bases: 0,
+        ok: 0,
+        erro: 0,
+        total: 0,
+        fim: '-'
+    };
+    ESTADO_RESUMO.consulta = {
+        totalServidores: SERVIDORES_RESUMO.length,
+        servidoresFinalizados: 0,
+        bancosDescobertos: 0,
+        bancosProcessados: 0,
+        bancosIgnorados: 0,
+        ativos: 0,
+        fila: 0,
+        finalizado: false,
+        iniciadaEm: new Date().toISOString()
+    };
+    aplicarResumoNaTela();
+    renderizarTabelaResumo();
+    atualizarMensagemVazia();
+    atualizarIndicadorCache('Consulta online em andamento', 'cache-online');
+    atualizarStatusConsulta();
+    var botao = document.getElementById('botaoConsultar');
+    if (botao) {
+        botao.disabled = true;
+    }
+}
+function finalizarConsultaOnline() {
+    ESTADO_RESUMO.consultando = false;
+    ESTADO_RESUMO.consulta.finalizado = true;
+    ESTADO_RESUMO.resumo.fim = formatarHorarioAgora();
+    aplicarResumoNaTela();
+    atualizarStatusConsulta();
+    atualizarIndicadorCache('Resultados online + cache local', 'cache-online');
+    persistirResumoAgora();
+    var botao = document.getElementById('botaoConsultar');
+    if (botao) {
+        botao.disabled = false;
+    }
+}
+async function requisitarJson(url) {
+    var resposta = await fetch(url, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+            'Accept': 'application/json'
+        },
+        cache: 'no-store'
+    });
+
+    var texto = await resposta.text();
+    var payload = null;
+    try {
+        payload = texto ? JSON.parse(texto) : null;
+    } catch (erro) {
+        payload = {
+            ok: false,
+            erro: 'Resposta inválida do worker.',
+            detalhe: texto
+        };
+    }
+
+    if (!resposta.ok && payload && typeof payload.ok === 'undefined') {
+        payload.ok = false;
+    }
+
+    return payload || {
+        ok: false,
+        erro: 'Resposta vazia do worker.'
+    };
+}
+async function executarFilaComLimite(lista, limite, worker) {
+    var indice = 0;
+    async function consumir() {
+        while (true) {
+            var atual = indice;
+            indice += 1;
+            if (atual >= lista.length) {
+                return;
+            }
+            await worker(lista[atual], atual);
+        }
+    }
+    var tarefas = [];
+    var quantidade = Math.max(1, Math.min(limite, lista.length || 1));
+    for (var i = 0; i < quantidade; i++) {
+        tarefas.push(consumir());
+    }
+    await Promise.all(tarefas);
+}
+function montarUrlWorker(params) {
+    var qs = new URLSearchParams(params);
+    return URL_WORKER_RESUMO + '?' + qs.toString();
+}
+async function listarBancosServidor(servidor) {
+    var url = montarUrlWorker({
+        acao: 'listar_bancos',
+        s: servidor.indiceServidor,
+        database: <?= json_encode($filtroDatabase, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>
+    });
+    var payload = await requisitarJson(url);
+    if (!payload || payload.ok !== true) {
+        ESTADO_RESUMO.resumo.erro += Number(payload && payload.contabilizar_erro ? payload.contabilizar_erro : 1);
+        aplicarResumoNaTela();
+        marcarAtualizacaoOnline();
+        atualizarIndicadorCache('Consulta online com falhas', 'cache-online');
+        return [];
+    }
+    var bancos = Array.isArray(payload.bancos) ? payload.bancos : [];
+    return bancos.map(function(database) {
+        return {
+            indiceServidor: String(payload.indiceServidor || servidor.indiceServidor || ''),
+            servidor: String(payload.servidor || servidor.identificacao || ''),
+            endereco: String(payload.endereco || servidor.endereco || ''),
+            porta: String(payload.porta || servidor.porta || ''),
+            database: String(database || '')
+        };
+    });
+}
+async function consultarBancoFila(tarefa) {
+    ESTADO_RESUMO.consulta.ativos += 1;
+    ESTADO_RESUMO.consulta.fila = Math.max(0, ESTADO_RESUMO.consulta.fila - 1);
+    atualizarStatusConsulta();
+
+    var url = montarUrlWorker({
+        acao: 'consultar_banco',
+        s: tarefa.indiceServidor,
+        db: tarefa.database,
+        dias: DIAS_CONSULTA_ATUAL
+    });
+
+    try {
+        var payload = await requisitarJson(url);
+        if (payload && payload.ok === true) {
+            if (payload.ignorado) {
+                ESTADO_RESUMO.consulta.bancosIgnorados += 1;
+                removerResultado(payload.indiceServidor, payload.database, payload.porta);
+            } else {
+                ESTADO_RESUMO.resumo.ok += Number(payload.contabilizar_ok || 0);
+                if (Number(payload.quantidade || 0) > 0) {
+                    adicionarResultado(
+                        String(payload.servidor || tarefa.servidor || ''),
+                        String(payload.endereco || tarefa.endereco || ''),
+                        String(payload.porta || tarefa.porta || ''),
+                        String(payload.database || tarefa.database || ''),
+                        String(payload.quantidade || '0'),
+                        String(payload.classeLinha || 'linha-verde'),
+                        String(payload.indiceServidor || tarefa.indiceServidor || ''),
+                        String(payload.diasConsulta || DIAS_CONSULTA_ATUAL)
+                    );
+                } else {
+                    removerResultado(payload.indiceServidor, payload.database, payload.porta);
+                }
+            }
+            recalcularResumoPorLinhas();
+            aplicarResumoNaTela();
+            marcarAtualizacaoOnline();
+            atualizarIndicadorCache('Resultados online + cache local', 'cache-online');
+        } else {
+            ESTADO_RESUMO.resumo.erro += Number(payload && payload.contabilizar_erro ? payload.contabilizar_erro : 1);
+            aplicarResumoNaTela();
+            marcarAtualizacaoOnline();
+            atualizarIndicadorCache('Consulta online com falhas', 'cache-online');
+        }
+    } catch (erro) {
+        ESTADO_RESUMO.resumo.erro += 1;
+        aplicarResumoNaTela();
+        marcarAtualizacaoOnline();
+        atualizarIndicadorCache('Consulta online com falhas', 'cache-online');
+    } finally {
+        ESTADO_RESUMO.consulta.ativos = Math.max(0, ESTADO_RESUMO.consulta.ativos - 1);
+        ESTADO_RESUMO.consulta.bancosProcessados += 1;
+        atualizarStatusConsulta();
+        persistirResumoDebounce();
+    }
+}
+async function iniciarConsultaOnline() {
+    reiniciarConsultaNaTela();
+
+    var tarefasBancos = [];
+    await executarFilaComLimite(SERVIDORES_RESUMO, LIMITE_CONCORRENCIA_SERVIDORES, async function(servidor) {
+        var bancos = await listarBancosServidor(servidor);
+        if (bancos.length) {
+            for (var i = 0; i < bancos.length; i++) {
+                tarefasBancos.push(bancos[i]);
+            }
+            ESTADO_RESUMO.consulta.bancosDescobertos += bancos.length;
+            ESTADO_RESUMO.consulta.fila = tarefasBancos.length;
+        }
+        ESTADO_RESUMO.consulta.servidoresFinalizados += 1;
+        atualizarStatusConsulta();
+        persistirResumoDebounce();
+    });
+
+    if (tarefasBancos.length > 0) {
+        await executarFilaComLimite(tarefasBancos, LIMITE_CONCORRENCIA_BANCOS, async function(tarefa) {
+            await consultarBancoFila(tarefa);
+        });
+    }
+
+    finalizarConsultaOnline();
+}
 window.addEventListener('DOMContentLoaded', function() {
     ESTADO_RESUMO.cacheKey = obterChaveResumoLocal();
-    ESTADO_RESUMO.consultando = <?= $executarConsulta ? 'true' : 'false' ?>;
+    ESTADO_RESUMO.consultando = EXECUTAR_CONSULTA_INICIAL;
     iniciarEscutaAtualizacaoResumo();
-    if (ESTADO_RESUMO.consultando) {
-        atualizarStatus('Atualizando consulta online para este filtro...');
-        atualizarIndicadorCache('Consulta online em andamento', 'cache-online');
+    if (EXECUTAR_CONSULTA_INICIAL) {
+        iniciarConsultaOnline();
     } else {
         carregarResumoDoCache();
     }
@@ -1025,7 +1102,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
         <div class="toolbar-grid">
             <section class="panel panel-form">
-                <form method="get" action="" onsubmit="mostrarOverlayProcessando('Consultando bancos, aguarde...')">
+                <form method="get" action="">
                     <input type="hidden" name="consultar" value="1">
                     <div class="field">
                         <label for="database">Database (like)</label>
@@ -1036,7 +1113,7 @@ window.addEventListener('DOMContentLoaded', function() {
                         <input type="number" id="dias" name="dias" min="1" value="<?= (int) $diasConsulta ?>">
                     </div>
                     <div>
-                        <button class="botao" type="submit">Consultar</button>
+                        <button class="botao" id="botaoConsultar" type="submit">Consultar</button>
                     </div>
                 </form>
             </section>
@@ -1103,183 +1180,5 @@ window.addEventListener('DOMContentLoaded', function() {
         </section>
     </main>
 </div>
-
-<div class="overlay-processando" id="overlayProcessando">
-    <div class="overlay-box">
-        <strong>Consultando bancos</strong>
-        <span id="textoOverlayProcessando">Aguarde...</span>
-    </div>
-</div>
-<?php if ($executarConsulta): ?>
-<script>mostrarOverlayProcessando('Consultando bancos, aguarde...');</script>
-<?php endif; ?>
-<?php
-
-enviarSaida();
-
-if (!$executarConsulta) {
-    ?>
 </body>
 </html>
-<?php
-    exit;
-}
-
-foreach ($servidores as $indiceServidor => $servidor) {
-    $identificacao = isset($servidor['identificacao']) ? trim((string)$servidor['identificacao']) : '';
-    $endereco = isset($servidor['endereco']) ? trim((string)$servidor['endereco']) : '';
-    $porta = isset($servidor['porta']) ? (int)$servidor['porta'] : 3306;
-
-    if ($identificacao === '' || $endereco === '') {
-        $totalConsultasErro++;
-        echo '<script>';
-        echo 'atualizarStatus(' . jsTexto('Servidor ignorado por falta de configuração.') . ');';
-        echo 'marcarAtualizacaoOnline();';
-            echo 'atualizarResumo(' . $totalBasesComNotas . ',' . $totalConsultasOk . ',' . $totalConsultasErro . ',' . $totalQuantidadeNotas . ', null);';
-        echo '</script>';
-        enviarSaida();
-        continue;
-    }
-
-    echo '<script>';
-    echo 'atualizarStatus(' . jsTexto('Conectando em servidor: ' . $identificacao . ' (' . $endereco . ':' . $porta . ')...') . ');';
-    echo '</script>';
-    enviarSaida();
-
-    error_log('CONSULTAR_NOTAS conectando servidor=' . $identificacao . ' host=' . $endereco . ' porta=' . $porta);
-    $conexao = criarConexaoMysql($endereco, $mysqlUsuario, $mysqlSenha, $porta);
-
-    if ($conexao === false) {
-        $totalConsultasErro++;
-        $erroConexao = mysqli_connect_error();
-        if (!is_string($erroConexao) || $erroConexao === '') {
-            $erroConexao = 'falha ao conectar no servidor MySQL';
-        }
-        echo '<script>';
-        echo 'atualizarStatus(' . jsTexto('Erro ao conectar em ' . $identificacao . ': ' . $erroConexao) . ');';
-        echo 'marcarAtualizacaoOnline();';
-            echo 'atualizarResumo(' . $totalBasesComNotas . ',' . $totalConsultasOk . ',' . $totalConsultasErro . ',' . $totalQuantidadeNotas . ', null);';
-        echo '</script>';
-        enviarSaida();
-        continue;
-    }
-
-    $bancos = listarBancos($conexao, $filtroDatabase);
-
-    foreach ($bancos as $nomeBanco) {
-        if (strcasecmp($nomeBanco, 'posto_teste') === 0) {
-            continue;
-        }
-
-        error_log('CONSULTAR_NOTAS verificando servidor=' . $identificacao . ' database=' . $nomeBanco);
-
-        if ($filtroDatabase !== '' && stripos($nomeBanco, $filtroDatabase) === false) {
-            continue;
-        }
-
-        echo '<script>';
-        echo 'atualizarStatus(' . jsTexto('Verificando ' . $identificacao . ' / database: ' . $nomeBanco) . ');';
-        echo '</script>';
-        enviarSaida();
-
-        $temNotasEletronicas = tabelaExiste($conexao, $nomeBanco, 'notas_fiscais_eletronicas');
-        if (!$temNotasEletronicas) {
-            continue;
-        }
-
-        $temNotas = tabelaExiste($conexao, $nomeBanco, 'notas_fiscais');
-        if (!$temNotas) {
-            $totalConsultasErro++;
-            echo '<script>';
-            echo 'marcarAtualizacaoOnline();';
-            echo 'atualizarResumo(' . $totalBasesComNotas . ',' . $totalConsultasOk . ',' . $totalConsultasErro . ',' . $totalQuantidadeNotas . ', null);';
-            echo '</script>';
-            enviarSaida();
-            continue;
-        }
-
-        $nomeBancoEscapado = str_replace('`', '``', $nomeBanco);
-
-        $sqlConsulta = "
-            SELECT COUNT(*) AS quantidade
-            FROM `{$nomeBancoEscapado}`.`notas_fiscais_eletronicas` a
-            INNER JOIN `{$nomeBancoEscapado}`.`notas_fiscais` b
-                ON a.idt = b.idt and a.origem=b.origem
-            WHERE a.status NOT IN (100, 150, 101, 102)
-              AND b.emissao >= DATE_SUB(NOW(), INTERVAL {$diasConsulta} DAY)
-        ";
-
-        $resultadoConsulta = $conexao->query($sqlConsulta);
-
-        if ($resultadoConsulta === false) {
-            $totalConsultasErro++;
-            echo '<script>';
-            echo 'marcarAtualizacaoOnline();';
-            echo 'atualizarResumo(' . $totalBasesComNotas . ',' . $totalConsultasOk . ',' . $totalConsultasErro . ',' . $totalQuantidadeNotas . ', null);';
-            echo '</script>';
-            enviarSaida();
-            continue;
-        }
-
-        $linhaConsulta = $resultadoConsulta->fetch_assoc();
-        $quantidade = isset($linhaConsulta['quantidade']) ? (int)$linhaConsulta['quantidade'] : 0;
-        $resultadoConsulta->free();
-
-        $totalConsultasOk++;
-
-        if ($quantidade > 0) {
-            error_log('CONSULTAR_NOTAS resultado servidor=' . $identificacao . ' database=' . $nomeBanco . ' quantidade=' . $quantidade);
-            $totalQuantidadeNotas += $quantidade;
-            $totalBasesComNotas++;
-
-            $classeLinha = ($quantidade > 100) ? 'linha-vermelha' : 'linha-verde';
-
-            echo '<script>';
-            echo 'marcarAtualizacaoOnline();';
-            echo 'adicionarResultado('
-                . jsTexto($identificacao) . ','
-                . jsTexto($endereco) . ','
-                . jsTexto((string)$porta) . ','
-                . jsTexto($nomeBanco) . ','
-                . jsTexto((string)$quantidade) . ','
-                . jsTexto($classeLinha) . ','
-                . jsTexto((string)$indiceServidor) . ','
-                . jsTexto((string)$diasConsulta)
-                . ');';
-            echo 'marcarAtualizacaoOnline();';
-            echo 'atualizarResumo(' . $totalBasesComNotas . ',' . $totalConsultasOk . ',' . $totalConsultasErro . ',' . $totalQuantidadeNotas . ', null);';
-            echo '</script>';
-            enviarSaida();
-        } else {
-            echo '<script>';
-            echo 'marcarAtualizacaoOnline();';
-            echo 'atualizarResumo(' . $totalBasesComNotas . ',' . $totalConsultasOk . ',' . $totalConsultasErro . ',' . $totalQuantidadeNotas . ', null);';
-            echo '</script>';
-            enviarSaida();
-        }
-    }
-
-    $conexao->close();
-}
-
-error_log('CONSULTAR_NOTAS finalizada bases=' . $totalBasesComNotas . ' ok=' . $totalConsultasOk . ' erro=' . $totalConsultasErro . ' total=' . $totalQuantidadeNotas);
-
-echo '<script>';
-echo 'ESTADO_RESUMO.consultando = false;';
-echo 'marcarAtualizacaoOnline();';
-echo 'atualizarStatus(' . jsTexto('Consulta finalizada.') . ');';
-echo 'ocultarOverlayProcessando();';
-echo 'atualizarResumo('
-    . $totalBasesComNotas . ','
-    . $totalConsultasOk . ','
-    . $totalConsultasErro . ','
-    . $totalQuantidadeNotas . ','
-    . jsTexto(date('d/m/Y H:i:s'))
-    . ');';
-echo '</script>';
-
-enviarSaida();
-
-
-echo '</body>';
-echo '</html>';

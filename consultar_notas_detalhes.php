@@ -770,31 +770,55 @@ if (isset($_GET['ajax_execucoes']) && (string) $_GET['ajax_execucoes'] === '1') 
     exit;
 }
 
+$ajaxCarregar = isset($_GET['ajax_carregar']) && (string) $_GET['ajax_carregar'] === '1';
 $mysqlUsuario = (string) $configuracao['mysql_usuario'];
 $mysqlSenha = (string) $configuracao['mysql_senha'];
 
 mysqli_report(MYSQLI_REPORT_OFF);
 
-$conexao = @new mysqli($endereco, $mysqlUsuario, $mysqlSenha, '', $porta);
-if ($conexao->connect_errno) {
-    sairComErro('Erro ao conectar no servidor: ' . $conexao->connect_error);
+$conexao = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' || $ajaxCarregar) {
+    $conexao = criarConexaoMysql($endereco, $mysqlUsuario, $mysqlSenha, $porta);
+    if (!$conexao instanceof mysqli) {
+        if ($ajaxCarregar) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo codificarJsonSeguro([
+                'ok' => false,
+                'erro' => 'Erro ao conectar no servidor para carregar os detalhes das notas.'
+            ], 'CONSULTAR_NOTAS_DETALHES ajax carregar erro conexao');
+            exit;
+        }
+
+        sairComErro('Erro ao conectar no servidor.');
+    }
 }
-$conexao->set_charset('utf8mb4');
+
+if ($ajaxCarregar) {
+    try {
+        error_log('CONSULTAR_NOTAS_DETALHES carregando lista inicial via ajax banco=' . $nomeBanco . ' dias=' . $diasConsulta);
+        $linhasAjax = carregarLinhasProblema($conexao, $nomeBanco, $diasConsulta);
+        $conexao->close();
+        header('Content-Type: application/json; charset=utf-8');
+        echo codificarJsonSeguro([
+            'ok' => true,
+            'linhas' => array_values($linhasAjax)
+        ], 'CONSULTAR_NOTAS_DETALHES ajax carregar');
+        exit;
+    } catch (Throwable $e) {
+        if ($conexao instanceof mysqli) {
+            $conexao->close();
+        }
+        header('Content-Type: application/json; charset=utf-8');
+        echo codificarJsonSeguro([
+            'ok' => false,
+            'erro' => $e->getMessage()
+        ], 'CONSULTAR_NOTAS_DETALHES ajax carregar erro consulta');
+        exit;
+    }
+}
 
 $linhas = [];
 $linhasCarregadas = false;
-
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    try {
-        error_log('CONSULTAR_NOTAS_DETALHES carregando lista completa inicial do banco=' . $nomeBanco . ' dias=' . $diasConsulta);
-        $linhas = carregarLinhasProblema($conexao, $nomeBanco, $diasConsulta);
-        $linhasCarregadas = true;
-    } catch (Throwable $e) {
-        $erro = $e->getMessage();
-        $conexao->close();
-        sairComErro($erro);
-    }
-}
 
 $classeMensagem = 'ok';
 $mensagemExecucao = '';
@@ -1104,18 +1128,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 
-if (!$linhasCarregadas) {
-    try {
-        error_log('CONSULTAR_NOTAS_DETALHES recarregando lista completa final banco=' . $nomeBanco . ' dias=' . $diasConsulta);
-        $linhas = carregarLinhasProblema($conexao, $nomeBanco, $diasConsulta);
-        $linhasCarregadas = true;
-    } catch (Throwable $e) {
-        $conexao->close();
-        sairComErro($e->getMessage());
-    }
+if ($conexao instanceof mysqli) {
+    $conexao->close();
 }
-
-$conexao->close();
 
 $linhasJson = codificarJsonSeguro(array_values($linhas), 'CONSULTAR_NOTAS_DETALHES linhas');
 $linhasResultadoJson = codificarJsonSeguro(array_values($linhasResultado), 'CONSULTAR_NOTAS_DETALHES linhasResultado');
@@ -1598,6 +1613,62 @@ input[type="checkbox"] {
     padding-top: 9px;
     padding-bottom: 9px;
 }
+
+.overlay-consulta-dados {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(4, 6, 10, 0.82);
+    backdrop-filter: blur(6px);
+}
+.overlay-consulta-dados[hidden] {
+    display: none !important;
+}
+.overlay-consulta-box {
+    width: min(560px, 100%);
+    padding: 28px 26px;
+    border-radius: 22px;
+    border: 1px solid rgba(83, 167, 255, 0.28);
+    background: linear-gradient(180deg, rgba(14, 20, 31, 0.98), rgba(9, 14, 23, 0.96));
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+.overlay-consulta-titulo {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #dbe7ff;
+}
+.overlay-consulta-texto {
+    margin-top: 10px;
+    font-size: 22px;
+    font-weight: 800;
+    color: #7ff0a1;
+}
+.overlay-consulta-subtexto {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 13px;
+}
+.overlay-consulta-spinner {
+    width: 54px;
+    height: 54px;
+    margin: 0 auto 16px auto;
+    border-radius: 50%;
+    border: 4px solid rgba(83, 167, 255, 0.18);
+    border-top-color: rgba(83, 167, 255, 0.92);
+    animation: giro-consulta-dados 0.9s linear infinite;
+}
+@keyframes giro-consulta-dados {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
 @media (max-width: 1600px) {
     .title-row { grid-template-columns: minmax(460px, 1.35fr) minmax(380px, 1fr) minmax(260px, 0.75fr); }
     .header-grid { grid-template-columns: minmax(460px, 1.35fr) minmax(380px, 1fr) minmax(260px, 0.75fr); }
@@ -1648,6 +1719,49 @@ var ESTADO_DETALHES = {
     cacheKey: <?= json_encode('detalhes::' . $_SERVER['PHP_SELF'] . '::' . $indiceServidor . '::' . $nomeBanco . '::' . $diasConsulta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
     uiKey: <?= json_encode('ui::' . $_SERVER['PHP_SELF'] . '::' . $indiceServidor . '::' . $nomeBanco . '::' . $diasConsulta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>
 };
+var URL_CARREGAR_DETALHES = 'consultar_notas_detalhes.php?ajax_carregar=1&s=<?= (int) $indiceServidor ?>&db=<?= rawurlencode($nomeBanco) ?>&dias=<?= (int) $diasConsulta ?>';
+function mostrarOverlayConsultaDados(texto, subtexto) {
+    var overlay = document.getElementById('overlayConsultaDados');
+    if (!overlay) { return; }
+    var textoEl = document.getElementById('overlayConsultaDadosTexto');
+    var subtextoEl = document.getElementById('overlayConsultaDadosSubtexto');
+    if (textoEl) {
+        textoEl.textContent = texto || 'Consultando dados das notas...';
+    }
+    if (subtextoEl) {
+        subtextoEl.textContent = subtexto || 'Aguarde enquanto as informações são carregadas.';
+    }
+    overlay.hidden = false;
+}
+function ocultarOverlayConsultaDados() {
+    var overlay = document.getElementById('overlayConsultaDados');
+    if (!overlay) { return; }
+    overlay.hidden = true;
+}
+function carregarLinhasIniciaisOnline() {
+    mostrarOverlayConsultaDados('Consultando dados das notas...', 'Aguarde enquanto as informações são carregadas.');
+    return fetch(URL_CARREGAR_DETALHES, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+    })
+        .then(function(resposta) {
+            if (!resposta.ok) {
+                throw new Error('Falha HTTP ao carregar detalhes');
+            }
+            return resposta.json();
+        })
+        .then(function(payload) {
+            if (!payload || payload.ok !== true || !Array.isArray(payload.linhas)) {
+                throw new Error(payload && payload.erro ? String(payload.erro) : 'Falha ao carregar detalhes das notas.');
+            }
+            ESTADO_DETALHES.linhas = payload.linhas;
+            return payload;
+        })
+        .finally(function() {
+            ocultarOverlayConsultaDados();
+        });
+}
 function abrirBancoUi() {
     if (!window.indexedDB) {
         return Promise.resolve(null);
@@ -2271,20 +2385,40 @@ window.addEventListener('change', function(evento) {
     salvarEstadoUiDebounce();
 });
 window.addEventListener('DOMContentLoaded', function() {
-    restaurarEstadoUi().then(function() {
-        renderizarTabelaDetalhes();
-        renderizarResultadoAcoes(RESULTADOS_EXECUCAO_INICIAIS);
-        salvarCacheDetalhes();
-        if (LIMPAR_FILTRO_AO_ABRIR) {
-            salvarEstadoUiDebounce();
-        }
-        sincronizarResumoComDetalhes();
-        iniciarMonitorExecucoesAtivas();
-    });
+    carregarLinhasIniciaisOnline()
+        .then(function() {
+            return restaurarEstadoUi();
+        })
+        .then(function() {
+            renderizarTabelaDetalhes();
+            renderizarResultadoAcoes(RESULTADOS_EXECUCAO_INICIAIS);
+            salvarCacheDetalhes();
+            if (LIMPAR_FILTRO_AO_ABRIR) {
+                salvarEstadoUiDebounce();
+            }
+            sincronizarResumoComDetalhes();
+            iniciarMonitorExecucoesAtivas();
+            atualizarBadgeCache('Tabela local atualizada', 'cache-local');
+        })
+        .catch(function(erro) {
+            renderizarTabelaDetalhes();
+            renderizarResultadoAcoes(RESULTADOS_EXECUCAO_INICIAIS);
+            mostrarMensagemExecucao((erro && erro.message) ? erro.message : 'Erro ao carregar os dados das notas.', 'erro');
+            atualizarBadgeCache('Falha ao carregar tabela', 'cache-live');
+            iniciarMonitorExecucoesAtivas();
+        });
 });
 </script>
 </head>
 <body>
+<div id="overlayConsultaDados" class="overlay-consulta-dados">
+    <div class="overlay-consulta-box">
+        <div class="overlay-consulta-spinner"></div>
+        <div class="overlay-consulta-titulo">Carregando</div>
+        <div id="overlayConsultaDadosTexto" class="overlay-consulta-texto">Consultando dados das notas...</div>
+        <div id="overlayConsultaDadosSubtexto" class="overlay-consulta-subtexto">Aguarde enquanto as informações são carregadas.</div>
+    </div>
+</div>
 <div class="app-shell">
     <header class="topbar">
         <div class="title-row">
@@ -2306,38 +2440,33 @@ window.addEventListener('DOMContentLoaded', function() {
 
         <div class="header-grid">
             <section class="panel actions-panel">
-                <?php if (count($linhas) > 0): ?>
-                    <form id="formNotas" method="post" action="" onsubmit="return enviarFormularioAjax(event)">
-                        <input type="hidden" id="acaoFormulario" name="acao" value="">
-                        <input type="hidden" name="s" value="<?= (int) $indiceServidor ?>">
-                        <input type="hidden" name="db" value="<?= htmlspecialchars($nomeBanco, ENT_QUOTES, 'UTF-8') ?>">
-                        <input type="hidden" name="dias" value="<?= (int) $diasConsulta ?>">
-                        <div id="idtsSelecionadosContainer"></div>
-                        <input type="hidden" name="ajax_action" value="1">
-                        <input type="hidden" id="linhasSelecionadasJson" name="linhas_selecionadas_json" value="">
-                        <div class="panel-title">Ações disponíveis</div>
-                        <div class="filter-box">
-                            <label for="filtroDescricao">Filtrar descrição</label>
-                            <input id="filtroDescricao" type="text" autocomplete="off" oninput="aplicarFiltroDescricao()" placeholder="Digite para filtrar pela descrição">
-                        </div>
-                        <div class="action-grid">
-                            <button class="botao" type="submit" onclick="return validarEnvio('acerto_w');"><span>Offline</span><small>(acerto_w)</small></button>
-                            <button class="botao" type="submit" onclick="return validarEnvio('consultarX');"><span>Consultar</span><small>(consultarX)</small></button>
-                            <button class="botao" type="submit" onclick="return validarEnvio('enviarX');"><span>Enviar</span><small>(enviarX)</small></button>
-                            <button class="botao" type="submit" onclick="return validarEnvio('acerto_v');"><span>Normal</span><small>(acerto_v)</small></button>
-                            <button class="botao" type="submit" onclick="return validarEnvio('cancelarX');"><span>Cancelar</span><small>(cancelarX)</small></button>
-                            <button class="botao" type="submit" onclick="return validarEnvio('inutilizarX');"><span>Inutilizar</span><small>(inutilizarX)</small></button>
-                            <button class="botao oculto" type="submit" onclick="return validarEnvio('validarX');"><span>Validar</span><small>(validarX)</small></button>
-                        </div>
-                        <div class="mini-actions">
-                            <span class="text-link" onclick="marcarTodos()">Marcar visíveis</span>
-                            <span class="text-link" onclick="desmarcarTodos()">Desmarcar visíveis</span>
-                        </div>
-                    </form>
-                <?php else: ?>
+                <form id="formNotas" method="post" action="" onsubmit="return enviarFormularioAjax(event)">
+                    <input type="hidden" id="acaoFormulario" name="acao" value="">
+                    <input type="hidden" name="s" value="<?= (int) $indiceServidor ?>">
+                    <input type="hidden" name="db" value="<?= htmlspecialchars($nomeBanco, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="dias" value="<?= (int) $diasConsulta ?>">
+                    <div id="idtsSelecionadosContainer"></div>
+                    <input type="hidden" name="ajax_action" value="1">
+                    <input type="hidden" id="linhasSelecionadasJson" name="linhas_selecionadas_json" value="">
                     <div class="panel-title">Ações disponíveis</div>
-                    <div class="empty-state" style="min-height: 150px; border-top: 0;">Nenhuma nota disponível para ação neste momento.</div>
-                <?php endif; ?>
+                    <div class="filter-box">
+                        <label for="filtroDescricao">Filtrar descrição</label>
+                        <input id="filtroDescricao" type="text" autocomplete="off" oninput="aplicarFiltroDescricao()" placeholder="Digite para filtrar pela descrição">
+                    </div>
+                    <div class="action-grid">
+                        <button class="botao" type="submit" onclick="return validarEnvio('acerto_w');"><span>Offline</span><small>(acerto_w)</small></button>
+                        <button class="botao" type="submit" onclick="return validarEnvio('consultarX');"><span>Consultar</span><small>(consultarX)</small></button>
+                        <button class="botao" type="submit" onclick="return validarEnvio('enviarX');"><span>Enviar</span><small>(enviarX)</small></button>
+                        <button class="botao" type="submit" onclick="return validarEnvio('acerto_v');"><span>Normal</span><small>(acerto_v)</small></button>
+                        <button class="botao" type="submit" onclick="return validarEnvio('cancelarX');"><span>Cancelar</span><small>(cancelarX)</small></button>
+                        <button class="botao" type="submit" onclick="return validarEnvio('inutilizarX');"><span>Inutilizar</span><small>(inutilizarX)</small></button>
+                        <button class="botao oculto" type="submit" onclick="return validarEnvio('validarX');"><span>Validar</span><small>(validarX)</small></button>
+                    </div>
+                    <div class="mini-actions">
+                        <span class="text-link" onclick="marcarTodos()">Marcar visíveis</span>
+                        <span class="text-link" onclick="desmarcarTodos()">Desmarcar visíveis</span>
+                    </div>
+                </form>
             </section>
 
             <section class="panel info-panel">
@@ -2407,9 +2536,6 @@ window.addEventListener('DOMContentLoaded', function() {
                     <span class="counter-pill">Total <strong id="contadorTotalNotas"><?= count($linhas) ?></strong></span>
                     <span class="counter-pill">Visíveis <strong id="contadorVisiveis">0</strong></span>
                     <span class="counter-pill">Selecionadas <strong id="contadorSelecionadas">0</strong></span>
-                    <?php if (count($linhas) === 0): ?>
-                        <a class="botao" href="javascript:history.back()" style="min-height:40px; padding:8px 16px;">Voltar</a>
-                    <?php endif; ?>
                 </div>
             </div>
             <div class="table-wrap">
