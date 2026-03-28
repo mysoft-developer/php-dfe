@@ -38,9 +38,9 @@ function sairComErro(string $mensagem): void
     echo '<title>Consulta de Notas</title>';
     echo '<style>';
     echo 'html, body { height:100%; margin:0; }';
-    echo 'body { background:#111; color:#eee; font-family:Arial,Helvetica,sans-serif; }';
+    echo 'body { background:#eef4fb; color:#17324d; font-family:Arial,Helvetica,sans-serif; }';
     echo '.erro-wrap { padding:20px; }';
-    echo '.erro-box { padding:12px; background:#3a1515; border:1px solid #a33; color:#ffb3b3; font-weight:bold; }';
+    echo '.erro-box { padding:12px; background:#fff1f1; border:1px solid #e39a9a; color:#a63f3f; font-weight:bold; }';
     echo '</style>';
     echo '</head>';
     echo '<body>';
@@ -111,32 +111,32 @@ error_log('CONSULTAR_NOTAS pagina iniciada. executar=' . ($executarConsulta ? '1
 <title>Consulta de Notas</title>
 <style>
 :root {
-    --bg: #05070b;
-    --bg-alt: #0b1018;
-    --panel: rgba(15, 22, 34, 0.92);
-    --panel-strong: rgba(19, 28, 43, 0.96);
-    --line: rgba(130, 155, 190, 0.18);
-    --line-strong: rgba(130, 155, 190, 0.32);
-    --text: #eef3ff;
-    --muted: #95a6c5;
-    --accent: #53a7ff;
-    --accent-soft: rgba(83, 167, 255, 0.18);
-    --ok: #73d98b;
-    --ok-soft: rgba(115, 217, 139, 0.16);
-    --warn: #ffd166;
-    --warn-soft: rgba(255, 209, 102, 0.16);
-    --danger: #ff6d6d;
-    --danger-soft: rgba(255, 109, 109, 0.16);
-    --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+    --bg: #eef4fb;
+    --bg-alt: #dfeaf7;
+    --panel: rgba(255, 255, 255, 0.94);
+    --panel-strong: rgba(248, 251, 255, 0.98);
+    --line: rgba(86, 111, 145, 0.18);
+    --line-strong: rgba(86, 111, 145, 0.32);
+    --text: #17324d;
+    --muted: #5f748f;
+    --accent: #2f7de1;
+    --accent-soft: rgba(47, 125, 225, 0.14);
+    --ok: #2f9d57;
+    --ok-soft: rgba(47, 157, 87, 0.14);
+    --warn: #c88700;
+    --warn-soft: rgba(200, 135, 0, 0.14);
+    --danger: #d84c4c;
+    --danger-soft: rgba(216, 76, 76, 0.14);
+    --shadow: 0 18px 40px rgba(42, 65, 94, 0.12);
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body {
     min-height: 100%;
     background:
-        radial-gradient(circle at top right, rgba(57, 114, 197, 0.22), transparent 34%),
-        radial-gradient(circle at top left, rgba(255, 109, 109, 0.14), transparent 26%),
-        linear-gradient(180deg, #04060a 0%, #0a0e15 100%);
+        radial-gradient(circle at top right, rgba(47, 125, 225, 0.16), transparent 36%),
+        radial-gradient(circle at top left, rgba(216, 76, 76, 0.10), transparent 28%),
+        linear-gradient(180deg, #eef4fb 0%, #dfeaf7 100%);
     color: var(--text);
     font-family: Inter, Segoe UI, Arial, Helvetica, sans-serif;
     overflow: hidden;
@@ -162,7 +162,7 @@ body {
     position: relative;
     padding: 22px 24px 16px 24px;
     border-bottom: 1px solid var(--line);
-    background: linear-gradient(180deg, rgba(7, 10, 16, 0.96), rgba(7, 10, 16, 0.88));
+    background: linear-gradient(180deg, rgba(247, 250, 255, 0.98), rgba(239, 246, 255, 0.94));
     backdrop-filter: blur(16px);
 }
 .topbar::after {
@@ -172,7 +172,7 @@ body {
     right: 24px;
     bottom: 0;
     height: 2px;
-    background: linear-gradient(90deg, rgba(83, 167, 255, 0.05), rgba(83, 167, 255, 0.58), rgba(255, 109, 109, 0.05));
+    background: linear-gradient(90deg, rgba(47, 125, 225, 0.04), rgba(47, 125, 225, 0.40), rgba(216, 76, 76, 0.04));
 }
 .title-row {
     display: flex;
@@ -206,12 +206,12 @@ body {
     padding: 0 14px;
     border-radius: 999px;
     border: 1px solid var(--line);
-    background: rgba(12, 17, 27, 0.72);
+    background: rgba(255, 255, 255, 0.78);
     color: var(--muted);
     font-size: 13px;
 }
 .chip strong { color: var(--text); font-weight: 700; }
-.chip.live { border-color: rgba(83, 167, 255, 0.4); color: #cfe6ff; }
+.chip.live { border-color: rgba(47, 125, 225, 0.34); color: #24538a; }
 .toolbar-grid {
     display: grid;
     grid-template-columns: 1fr;
@@ -246,21 +246,21 @@ body {
     height: 46px;
     padding: 0 14px;
     border-radius: 14px;
-    border: 1px solid rgba(132, 150, 181, 0.22);
-    background: rgba(6, 11, 19, 0.96);
+    border: 1px solid rgba(111, 136, 171, 0.28);
+    background: rgba(255, 255, 255, 0.96);
     color: var(--text);
     outline: none;
 }
 .field input:focus {
-    border-color: rgba(83, 167, 255, 0.58);
-    box-shadow: 0 0 0 4px rgba(83, 167, 255, 0.08);
+    border-color: rgba(47, 125, 225, 0.52);
+    box-shadow: 0 0 0 4px rgba(47, 125, 225, 0.10);
 }
 .botao {
     height: 46px;
     padding: 0 20px;
-    border: 1px solid rgba(83, 167, 255, 0.4);
+    border: 1px solid rgba(47, 125, 225, 0.34);
     border-radius: 14px;
-    background: linear-gradient(180deg, rgba(31, 76, 130, 0.95), rgba(18, 52, 96, 0.95));
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.96), rgba(37, 99, 235, 0.96));
     color: #fff;
     font-weight: 700;
     letter-spacing: 0.05em;
@@ -310,6 +310,46 @@ body {
     font-size: 12px;
     color: var(--muted);
 }
+.metric-fim .value {
+    margin-top: 6px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.fim-carga {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+}
+.fim-carga.ativo {
+    display: flex;
+}
+.fim-carga-spinner {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 4px solid rgba(83, 167, 255, 0.18);
+    border-top-color: rgba(47, 125, 225, 0.92);
+    animation: giro-consulta-dados 0.9s linear infinite;
+}
+.fim-carga-texto {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #1f3e63;
+}
+.fim-execucao-texto.oculto {
+    display: none;
+}
+@keyframes giro-consulta-dados {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
 .status-bar {
     margin-top: 14px;
     display: flex;
@@ -318,20 +358,20 @@ body {
     flex-wrap: wrap;
     padding: 12px 16px;
     border-radius: 16px;
-    background: rgba(8, 13, 21, 0.9);
+    background: rgba(255, 255, 255, 0.92);
     border: 1px solid var(--line);
 }
 .status-dot {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: #53a7ff;
-    box-shadow: 0 0 18px rgba(83, 167, 255, 0.75);
+    background: #2f7de1;
+    box-shadow: 0 0 12px rgba(47, 125, 225, 0.28);
 }
 .status-text {
     flex: 1 1 320px;
     min-width: 0;
-    color: #dbe7ff;
+    color: #1f3e63;
     font-size: 14px;
     white-space: normal;
     overflow-wrap: anywhere;
@@ -344,13 +384,13 @@ body {
     padding: 0 12px;
     border-radius: 999px;
     border: 1px solid var(--line);
-    background: rgba(12, 17, 27, 0.76);
+    background: rgba(255, 255, 255, 0.86);
     color: var(--muted);
     font-size: 12px;
 }
-.cache-pill.cache-online { border-color: rgba(83, 167, 255, 0.48); color: #d8ebff; }
-.cache-pill.cache-local { border-color: rgba(115, 217, 139, 0.42); color: #d9ffe3; }
-.cache-pill.cache-empty { border-color: rgba(255, 209, 102, 0.38); color: #fff0b8; }
+.cache-pill.cache-online { border-color: rgba(47, 125, 225, 0.36); color: #24538a; }
+.cache-pill.cache-local { border-color: rgba(47, 157, 87, 0.30); color: #256c3f; }
+.cache-pill.cache-empty { border-color: rgba(200, 135, 0, 0.28); color: #8a5a00; }
 .content-shell {
     min-height: 0;
     padding: 18px 24px 24px 24px;
@@ -377,7 +417,7 @@ body {
     gap: 16px;
     padding: 16px 20px;
     border-bottom: 1px solid var(--line);
-    background: linear-gradient(180deg, rgba(11, 16, 25, 0.98), rgba(11, 16, 25, 0.9));
+    background: linear-gradient(180deg, rgba(248, 251, 255, 0.99), rgba(240, 246, 255, 0.95));
 }
 .surface-title {
     font-size: 18px;
@@ -409,16 +449,16 @@ body {
     position: sticky;
     top: 0;
     z-index: 2;
-    background: rgba(8, 13, 21, 0.98);
-    color: #dbe7ff;
+    background: rgba(234, 242, 252, 0.98);
+    color: #1f3e63;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-size: 11px;
 }
-.table-wrap tbody tr:nth-child(even) td { background: rgba(255, 255, 255, 0.01); }
-.table-wrap tbody tr:hover td { background: rgba(83, 167, 255, 0.05); }
-.table-wrap tbody tr.linha-verde td { background: rgba(22, 52, 31, 0.72); }
-.table-wrap tbody tr.linha-vermelha td { background: rgba(76, 22, 22, 0.72); }
+.table-wrap tbody tr:nth-child(even) td { background: rgba(47, 125, 225, 0.02); }
+.table-wrap tbody tr:hover td { background: rgba(47, 125, 225, 0.08); }
+.table-wrap tbody tr.linha-verde td { background: rgba(226, 246, 232, 0.96); }
+.table-wrap tbody tr.linha-vermelha td { background: rgba(255, 234, 234, 0.96); }
 .table-wrap td.col-quantidade { width: 170px; }
 .table-wrap td .link-quantidade {
     display: inline-flex;
@@ -429,14 +469,14 @@ body {
     padding: 0 14px;
     border-radius: 999px;
     border: 1px solid rgba(83, 167, 255, 0.28);
-    background: rgba(83, 167, 255, 0.09);
-    color: #f3f7ff;
+    background: rgba(47, 125, 225, 0.10);
+    color: #1f3e63;
     text-decoration: none;
     font-weight: 800;
 }
 .table-wrap td .link-quantidade:hover {
-    background: rgba(83, 167, 255, 0.18);
-    border-color: rgba(83, 167, 255, 0.48);
+    background: rgba(47, 125, 225, 0.16);
+    border-color: rgba(47, 125, 225, 0.34);
 }
 .empty-state {
     display: flex;
@@ -597,6 +637,20 @@ function atualizarMensagemVazia() {
         box.style.display = 'flex';
     }
 }
+function atualizarIndicadorFimExecucao() {
+    var boxCarregando = document.getElementById('fimExecucaoCarregando');
+    var textoFim = document.getElementById('fimExecucao');
+    if (!boxCarregando || !textoFim) {
+        return;
+    }
+    if (ESTADO_RESUMO.consultando) {
+        boxCarregando.classList.add('ativo');
+        textoFim.classList.add('oculto');
+    } else {
+        boxCarregando.classList.remove('ativo');
+        textoFim.classList.remove('oculto');
+    }
+}
 function aplicarResumoNaTela() {
     var mapa = {
         totalBasesComNotas: ESTADO_RESUMO.resumo.bases,
@@ -611,6 +665,7 @@ function aplicarResumoNaTela() {
             el.textContent = mapa[id];
         }
     });
+    atualizarIndicadorFimExecucao();
 }
 function recalcularResumoPorLinhas() {
     var total = 0;
@@ -1139,9 +1194,15 @@ window.addEventListener('DOMContentLoaded', function() {
                     <div class="value" id="totalQuantidadeNotas">0</div>
                     <div class="hint">Soma geral das bases exibidas</div>
                 </div>
-                <div class="panel metric">
+                <div class="panel metric metric-fim">
                     <div class="label">Fim</div>
-                    <div class="value" id="fimExecucao">-</div>
+                    <div class="value">
+                        <div class="fim-carga" id="fimExecucaoCarregando">
+                            <div class="fim-carga-spinner"></div>
+                            <div class="fim-carga-texto">Carregando</div>
+                        </div>
+                        <div class="fim-execucao-texto" id="fimExecucao">-</div>
+                    </div>
                     <div class="hint">Horário da última finalização</div>
                 </div>
             </section>

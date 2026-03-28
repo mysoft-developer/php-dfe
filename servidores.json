@@ -1,0 +1,1538 @@
+{
+    "servidores": [
+        {
+            "nome": "benassi_bnf",
+            "grupo": "benassi_bnf",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "benassi_bnf"
+        },
+        {
+            "nome": "benassi_rs",
+            "grupo": "benassi_rs",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "benassi_rs"
+        },
+        {
+            "nome": "erp_aadya",
+            "grupo": "erp_aadya",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_aadya"
+        },
+        {
+            "nome": "erp_adi",
+            "grupo": "erp_adi",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_adi"
+        },
+        {
+            "nome": "erp_agropremium",
+            "grupo": "erp_agropremium",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_agropremium"
+        },
+        {
+            "nome": "erp_alberts",
+            "grupo": "erp_alberts",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_alberts"
+        },
+        {
+            "nome": "erp_amores",
+            "grupo": "erp_amores",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_amores"
+        },
+        {
+            "nome": "erp_ariarte",
+            "grupo": "erp_ariarte",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_ariarte"
+        },
+        {
+            "nome": "erp_artpaes",
+            "grupo": "erp_artpaes",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_artpaes"
+        },
+        {
+            "nome": "erp_batatudinha",
+            "grupo": "erp_batatudinha",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_batatudinha"
+        },
+        {
+            "nome": "erp_batatudinha",
+            "grupo": "erp_batatudinha",
+            "endereco": "10.8.0.134",
+            "porta": 3306,
+            "database": "erp_batatudinha"
+        },
+        {
+            "nome": "erp_batatudinha",
+            "grupo": "erp_batatudinha",
+            "endereco": "10.8.0.185",
+            "porta": 3306,
+            "database": "erp_batatudinha"
+        },                
+        {
+            "nome": "erp_bertoni",
+            "grupo": "erp_bertoni",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_bertoni"
+        },
+        {
+            "nome": "erp_bonvivant",
+            "grupo": "erp_bonvivant",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_bonvivant"
+        },
+        {
+            "nome": "erp_boom",
+            "grupo": "erp_boom",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_boom"
+        },
+        {
+            "nome": "erp_boulevard",
+            "grupo": "erp_boulevard",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_boulevard"
+        },
+        {
+            "nome": "erp_boulevard",
+            "grupo": "erp_boulevard",
+            "endereco": "10.8.0.183",
+            "porta": 3306,
+            "database": "erp_boulevard"
+        },
+        {
+            "nome": "erp_caminhoverde",
+            "grupo": "erp_caminhoverde",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_caminhoverde"
+        },
+        {
+            "nome": "erp_cleantotal",
+            "grupo": "erp_cleantotal",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_cleantotal"
+        },
+        {
+            "nome": "erp_cmpetiscaria",
+            "grupo": "erp_cmpetiscaria",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_cmpetiscaria"
+        },
+        {
+            "nome": "erp_consibra",
+            "grupo": "erp_consibra",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_consibra"
+        },
+        {
+            "nome": "erp_datbrasil",
+            "grupo": "erp_datbrasil",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_datbrasil"
+        },
+        {
+            "nome": "erp_datimpexp",
+            "grupo": "erp_datimpexp",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_datimpexp"
+        },
+        {
+            "nome": "erp_datisolamento",
+            "grupo": "erp_datisolamento",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_datisolamento"
+        },
+        {
+            "nome": "erp_droca",
+            "grupo": "erp_droca",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_droca"
+        },
+        {
+            "nome": "erp_duobebidas",
+            "grupo": "erp_duobebidas",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_duobebidas"
+        },
+        {
+            "nome": "erp_ebenezer",
+            "grupo": "erp_ebenezer",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_ebenezer"
+        },
+        {
+            "nome": "erp_edeme",
+            "grupo": "erp_edeme",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_edeme"
+        },
+        {
+            "nome": "erp_emporio",
+            "grupo": "erp_emporio",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_emporio"
+        },
+        {
+            "nome": "erp_engtanks",
+            "grupo": "erp_engtanks",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_engtanks"
+        },
+        {
+            "nome": "erp_espetinho",
+            "grupo": "erp_espetinho",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_espetinho"
+        },
+        {
+            "nome": "erp_espetinho",
+            "grupo": "erp_espetinho",
+            "endereco": "10.8.0.131",
+            "porta": 3306,
+            "database": "erp_espetinho"
+        },
+        {
+            "nome": "erp_fekafe",
+            "grupo": "erp_fekafe",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_fekafe"
+        },
+        {
+            "nome": "erp_florestal",
+            "grupo": "erp_florestal",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_florestal"
+        },
+        {
+            "nome": "erp_formular",
+            "grupo": "erp_formular",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_formular"
+        },
+        {
+            "nome": "erp_frfrutas",
+            "grupo": "erp_frfrutas",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_frfrutas"
+        },
+        {
+            "nome": "erp_gardenfruit",
+            "grupo": "erp_gardenfruit",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_gardenfruit"
+        },
+        {
+            "nome": "erp_gigtek",
+            "grupo": "erp_gigtek",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_gigtek"
+        },
+        {
+            "nome": "erp_grabiscaia",
+            "grupo": "erp_grabiscaia",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_grabiscaia"
+        },
+        {
+            "nome": "erp_hortadoprincipe",
+            "grupo": "erp_hortadoprincipe",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_hortadoprincipe"
+        },
+        {
+            "nome": "erp_iatskiu",
+            "grupo": "erp_iatskiu",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_iatskiu"
+        },
+        {
+            "nome": "erp_inbrasfama",
+            "grupo": "erp_inbrasfama",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_inbrasfama"
+        },
+        {
+            "nome": "erp_jcr",
+            "grupo": "erp_jcr",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_jcr"
+        },
+        {
+            "nome": "erp_jcv",
+            "grupo": "erp_jcv",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_jcv"
+        },
+        {
+            "nome": "erp_jds",
+            "grupo": "erp_jds",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_jds"
+        },
+        {
+            "nome": "erp_kalamata",
+            "grupo": "erp_kalamata",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_kalamata"
+        },
+        {
+            "nome": "erp_katira",
+            "grupo": "erp_katira",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_katira"
+        },
+        {
+            "nome": "erp_ladeffi",
+            "grupo": "erp_ladeffi",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_ladeffi"
+        },
+        {
+            "nome": "erp_lanchao",
+            "grupo": "erp_lanchao",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_lanchao"
+        },
+        {
+            "nome": "erp_lap",
+            "grupo": "erp_lap",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_lap"
+        },
+        {
+            "nome": "erp_lerroville",
+            "grupo": "erp_lerroville",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_lerroville"
+        },
+        {
+            "nome": "erp_limaadvogados",
+            "grupo": "erp_limaadvogados",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_limaadvogados"
+        },
+        {
+            "nome": "erp_logal",
+            "grupo": "erp_logal",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_logal"
+        },
+        {
+            "nome": "erp_londrimassa",
+            "grupo": "erp_londrimassa",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_londrimassa"
+        },
+        {
+            "nome": "erp_maisclean",
+            "grupo": "erp_maisclean",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_maisclean"
+        },
+        {
+            "nome": "erp_malte",
+            "grupo": "erp_malte",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_malte"
+        },
+        {
+            "nome": "erp_malui_cc",
+            "grupo": "erp_malui_cc",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_malui_cc"
+        },
+        {
+            "nome": "erp_mc",
+            "grupo": "erp_mc",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_mc"
+        },
+        {
+            "nome": "erp_milk",
+            "grupo": "erp_milk",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_milk"
+        },
+        {
+            "nome": "erp_milkjockey",
+            "grupo": "erp_milkjockey",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_milkjockey"
+        },
+        {
+            "nome": "erp_milkmaringa",
+            "grupo": "erp_milkmaringa",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_milkmaringa"
+        },
+        {
+            "nome": "erp_milksouq",
+            "grupo": "erp_milksouq",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_milksouq"
+        },
+        {
+            "nome": "erp_mirandinha",
+            "grupo": "erp_mirandinha",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_mirandinha"
+        },
+        {
+            "nome": "erp_mirandinha",
+            "grupo": "erp_mirandinha",
+            "endereco": "10.8.0.88",
+            "porta": 3306,
+            "database": "erp_mirandinha"
+        },
+
+        {
+            "nome": "erp_monte_verde",
+            "grupo": "erp_monte_verde",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_monte_verde"
+        },
+        {
+            "nome": "erp_ms",
+            "grupo": "erp_ms",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_ms"
+        },
+        {
+            "nome": "erp_nonna",
+            "grupo": "erp_nonna",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_nonna"
+        },
+        {
+            "nome": "erp_ohmygoshcafe",
+            "grupo": "erp_ohmygoshcafe",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_ohmygoshcafe"
+        },
+        {
+            "nome": "erp_ohmygoshcafe",
+            "grupo": "erp_ohmygoshcafe",
+            "endereco": "10.8.0.225",
+            "porta": 3306,
+            "database": "erp_ohmygoshcafe"
+        },        
+        {
+            "nome": "erp_origens",
+            "grupo": "erp_origens",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_origens"
+        },
+        {
+            "nome": "erp_pack",
+            "grupo": "erp_pack",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_pack"
+        },
+        {
+            "nome": "erp_packplus",
+            "grupo": "erp_packplus",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_packplus"
+        },
+        {
+            "nome": "erp_padcarioca",
+            "grupo": "erp_padcarioca",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_padcarioca"
+        },
+        {
+            "nome": "erp_panamex",
+            "grupo": "erp_panamex",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_panamex"
+        },
+        {
+            "nome": "erp_pedaserra",
+            "grupo": "erp_pedaserra",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_pedaserra"
+        },
+        {
+            "nome": "erp_pontovip",
+            "grupo": "erp_pontovip",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_pontovip"
+        },
+        {
+            "nome": "erp_projetmoveis",
+            "grupo": "erp_projetmoveis",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_projetmoveis"
+        },
+        {
+            "nome": "erp_qb",
+            "grupo": "erp_qb",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_qb"
+        },
+        {
+            "nome": "erp_rafa",
+            "grupo": "erp_rafa",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_rafa"
+        },
+        {
+            "nome": "erp_ranchinho",
+            "grupo": "erp_ranchinho",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_ranchinho"
+        },
+        {
+            "nome": "erp_rancho",
+            "grupo": "erp_rancho",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_rancho"
+        },
+        {
+            "nome": "erp_recantodabarra",
+            "grupo": "erp_recantodabarra",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_recantodabarra"
+        },
+        {
+            "nome": "erp_recantodabarra",
+            "grupo": "erp_recantodabarra",
+            "endereco": "10.8.0.22",
+            "porta": 3306,
+            "database": "erp_recantodabarra"
+        },        
+        {
+            "nome": "erp_richter",
+            "grupo": "erp_richter",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_richter"
+        },
+        {
+            "nome": "erp_rj",
+            "grupo": "erp_rj",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_rj"
+        },
+        {
+            "nome": "erp_road",
+            "grupo": "erp_road",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_road"
+        },
+        {
+            "nome": "erp_rocknmovie",
+            "grupo": "erp_rocknmovie",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_rocknmovie"
+        },
+        {
+            "nome": "erp_serra_azul",
+            "grupo": "erp_serra_azul",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_serra_azul"
+        },
+        {
+            "nome": "erp_sobolos",
+            "grupo": "erp_sobolos",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_sobolos"
+        },
+        {
+            "nome": "erp_stoc",
+            "grupo": "erp_stoc",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_stoc"
+        },
+        {
+            "nome": "erp_studiomy",
+            "grupo": "erp_studiomy",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_studiomy"
+        },
+        {
+            "nome": "erp_tabas",
+            "grupo": "erp_tabas",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_tabas"
+        },
+        {
+            "nome": "erp_techplus",
+            "grupo": "erp_techplus",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_techplus"
+        },
+        {
+            "nome": "erp_tiozico",
+            "grupo": "erp_tiozico",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_tiozico"
+        },
+        {
+            "nome": "erp_tiozico",
+            "grupo": "erp_tiozico",
+            "endereco": "10.8.0.124",
+            "porta": 3306,
+            "database": "erp_tiozico"
+        },        
+        {
+            "nome": "erp_titaduarte",
+            "grupo": "erp_titaduarte",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_titaduarte"
+        },
+        {
+            "nome": "erp_topfitness",
+            "grupo": "erp_topfitness",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_topfitness"
+        },
+        {
+            "nome": "erp_trufasdaxuxu",
+            "grupo": "erp_trufasdaxuxu",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_trufasdaxuxu"
+        },
+        {
+            "nome": "erp_vac",
+            "grupo": "erp_vac",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_vac"
+        },
+        {
+            "nome": "erp_vacbrasil",
+            "grupo": "erp_vacbrasil",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_vacbrasil"
+        },
+        {
+            "nome": "erp_vendetta",
+            "grupo": "erp_vendetta",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_vendetta"
+        },
+        {
+            "nome": "erp_ventarolas",
+            "grupo": "erp_ventarolas",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_ventarolas"
+        },
+        {
+            "nome": "erp_victos",
+            "grupo": "erp_victos",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_victos"
+        },
+        {
+            "nome": "erp_voiolanda",
+            "grupo": "erp_voiolanda",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_voiolanda"
+        },
+        {
+            "nome": "erp_wrk",
+            "grupo": "erp_wrk",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_wrk"
+        },
+        {
+            "nome": "erp_yodel",
+            "grupo": "erp_yodel",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "erp_yodel"
+        },
+        {
+            "nome": "malhas_mm",
+            "grupo": "malhas_mm",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "malhas_mm"
+        },
+        {
+            "nome": "malui_cc",
+            "grupo": "malui_cc",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "malui_cc"
+        },
+        {
+            "nome": "malui_fc",
+            "grupo": "malui_fc",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "malui_fc"
+        },
+        {
+            "nome": "malui_mg",
+            "grupo": "malui_mg",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "malui_mg"
+        },
+        {
+            "nome": "malui_pg",
+            "grupo": "malui_pg",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "malui_pg"
+        },
+        {
+            "nome": "monte_verde",
+            "grupo": "monte_verde",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "monte_verde"
+        },
+        {
+            "nome": "nfe3_alianca",
+            "grupo": "nfe3_alianca",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_alianca"
+        },
+        {
+            "nome": "nfe3_bodnar",
+            "grupo": "nfe3_bodnar",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_bodnar"
+        },
+        {
+            "nome": "nfe3_capeleto",
+            "grupo": "nfe3_capeleto",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_capeleto"
+        },
+        {
+            "nome": "nfe3_elero",
+            "grupo": "nfe3_elero",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_elero"
+        },
+        {
+            "nome": "nfe3_ferraltech",
+            "grupo": "nfe3_ferraltech",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_ferraltech"
+        },
+        {
+            "nome": "nfe3_lmos",
+            "grupo": "nfe3_lmos",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_lmos"
+        },
+        {
+            "nome": "nfe3_magfer",
+            "grupo": "nfe3_magfer",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_magfer"
+        },
+        {
+            "nome": "nfe3_meira",
+            "grupo": "nfe3_meira",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_meira"
+        },
+        {
+            "nome": "nfe3_nutricosme",
+            "grupo": "nfe3_nutricosme",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_nutricosme"
+        },
+        {
+            "nome": "nfe3_oening",
+            "grupo": "nfe3_oening",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_oening"
+        },
+        {
+            "nome": "nfe3_oliveira",
+            "grupo": "nfe3_oliveira",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_oliveira"
+        },
+        {
+            "nome": "nfe3_piacentini",
+            "grupo": "nfe3_piacentini",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_piacentini"
+        },
+        {
+            "nome": "nfe3_piloneto",
+            "grupo": "nfe3_piloneto",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_piloneto"
+        },
+        {
+            "nome": "nfe3_qb",
+            "grupo": "nfe3_qb",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_qb"
+        },
+        {
+            "nome": "nfe3_rosvadoski",
+            "grupo": "nfe3_rosvadoski",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_rosvadoski"
+        },
+        {
+            "nome": "nfe3_smd",
+            "grupo": "nfe3_smd",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "nfe3_smd"
+        },
+        {
+            "nome": "perola",
+            "grupo": "perola",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "perola"
+        },
+        {
+            "nome": "rest_bandeirantes",
+            "grupo": "rest_bandeirantes",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "rest_bandeirantes"
+        },
+        {
+            "nome": "rest_ivankio",
+            "grupo": "rest_ivankio",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "rest_ivankio"
+        },
+        {
+            "nome": "serra_azul",
+            "grupo": "serra_azul",
+            "endereco": "mysaas.com.br",
+            "porta": 3306,
+            "database": "serra_azul"
+        },
+        {
+            "nome": "erp_canani",
+            "grupo": "erp_canani",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "erp_canani"
+        },
+        {
+            "nome": "erp_dino",
+            "grupo": "erp_dino",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "erp_dino"
+        },
+        {
+            "nome": "erp_km42",
+            "grupo": "erp_km42",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "erp_km42"
+        },
+        {
+            "nome": "erp_km42",
+            "grupo": "erp_km42",
+            "endereco": "10.8.0.129",
+            "porta": 3306,
+            "database": "erp_km42"
+        },        
+        {
+            "nome": "erp_stilo",
+            "grupo": "erp_stilo",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "erp_stilo"
+        },
+        {
+            "nome": "erp_tiozico",
+            "grupo": "erp_tiozico",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "erp_tiozico"
+        },
+        {
+            "nome": "posto_baseaerea",
+            "grupo": "posto_baseaerea",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_baseaerea"
+        },
+        {
+            "nome": "posto_borsatto",
+            "grupo": "posto_borsatto",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_borsatto"
+        },
+        {
+            "nome": "posto_didio",
+            "grupo": "posto_didio",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_didio"
+        },
+        {
+            "nome": "posto_didio",
+            "grupo": "posto_didio",
+            "endereco": "10.8.0.54",
+            "porta": 3306,
+            "database": "posto"
+        },        
+        {
+            "nome": "posto_dinossauro",
+            "grupo": "posto_dinossauro",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_dinossauro"
+        },
+        {
+            "nome": "posto_estreladaserra",
+            "grupo": "posto_estreladaserra",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_estreladaserra"
+        },
+        {
+            "nome": "posto_estreladaserra",
+            "grupo": "posto_estreladaserra",
+            "endereco": "10.8.0.220",
+            "porta": 3306,
+            "database": "posto"
+        },        
+        {
+            "nome": "posto_geometrica",
+            "grupo": "posto_geometrica",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_geometrica"
+        },
+        {
+            "nome": "posto_geometrica",
+            "grupo": "posto_geometrica",
+            "endereco": "10.8.0.55",
+            "porta": 3306,
+            "database": "posto"
+        },        
+        {
+            "nome": "posto_iguacu",
+            "grupo": "posto_iguacu",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_iguacu"
+        },
+        {
+            "nome": "posto_interposto",
+            "grupo": "posto_interposto",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_interposto"
+        },
+        {
+            "nome": "posto_mahle",
+            "grupo": "posto_mahle",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_mahle"
+        },
+        {
+            "nome": "posto_mahle",
+            "grupo": "posto_mahle",
+            "endereco": "10.8.0.195",
+            "porta": 3306,
+            "database": "posto_mahle"
+        },        
+        {
+            "nome": "posto_metropole",
+            "grupo": "posto_metropole",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_metropole"
+        },
+        {
+            "nome": "posto_milchesky",
+            "grupo": "posto_milchesky",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_milchesky"
+        },
+        {
+            "nome": "posto_milchesky",
+            "grupo": "posto_milchesky",
+            "endereco": "10.8.0.41",
+            "porta": 3306,
+            "database": "posto_milchesky"
+        },        
+        {
+            "nome": "posto_nuele",
+            "grupo": "posto_nuele",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_nuele"
+        },
+        {
+            "nome": "posto_pelanda16",
+            "grupo": "posto_pelanda16",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_pelanda16"
+        },
+        {
+            "nome": "posto_pelanda16",
+            "grupo": "posto_pelanda16",
+            "endereco": "10.8.0.108",
+            "porta": 3306,
+            "database": "posto"
+        },        
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_pelanda22"
+        },
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.22",
+            "porta": 3306,
+            "database": "posto"
+        },
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.23",
+            "porta": 3306,
+            "database": "posto"
+        },  
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.46",
+            "porta": 3306,
+            "database": "posto"
+        },                             
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.71",
+            "porta": 3306,
+            "database": "posto"
+        }, 
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.80",
+            "porta": 3306,
+            "database": "posto"
+        },                                
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.85",
+            "porta": 3306,
+            "database": "posto"
+        },                                
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.89",
+            "porta": 3306,
+            "database": "posto"
+        },
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.91",
+            "porta": 3306,
+            "database": "posto"
+        },                                        
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.96",
+            "porta": 3306,
+            "database": "posto"
+        },                                
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.102",
+            "porta": 3306,
+            "database": "posto"
+        },                                
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.104",
+            "porta": 3306,
+            "database": "posto"
+        },                                
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.105",
+            "porta": 3306,
+            "database": "posto"
+        },                                
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.115",
+            "porta": 3306,
+            "database": "posto"
+        },                                                               
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.118",
+            "porta": 3306,
+            "database": "posto"
+        },                                
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.125",
+            "porta": 3306,
+            "database": "posto"
+        },                                
+        {
+            "nome": "posto_piegel",
+            "grupo": "posto_piegel",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_piegel"
+        },
+        {
+            "nome": "posto_praiamansa",
+            "grupo": "posto_praiamansa",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_praiamansa"
+        },
+        {
+            "nome": "posto_represa",
+            "grupo": "posto_represa",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_represa"
+        },
+        {
+            "nome": "posto_represa",
+            "grupo": "posto_represa",
+            "endereco": "10.8.0.109",
+            "porta": 3306,
+            "database": "posto_represa"
+        },        
+        {
+            "nome": "posto_saltinho",
+            "grupo": "posto_saltinho",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_saltinho"
+        },
+        {
+            "nome": "posto_texano",
+            "grupo": "posto_texano",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_texano"
+        },
+        {
+            "nome": "posto_trevo",
+            "grupo": "posto_trevo",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "posto_trevo"
+        },
+        {
+            "nome": "posto_trevo",
+            "grupo": "posto_trevo",
+            "endereco": "10.8.0.34",
+            "porta": 3306,
+            "database": "posto_trevo"
+        },        
+        {
+            "nome": "rest_bandeirantes",
+            "grupo": "rest_bandeirantes",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "rest_bandeirantes"
+        },
+        {
+            "nome": "rest_borsatto",
+            "grupo": "rest_borsatto",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "rest_borsatto"
+        },
+        {
+            "nome": "rest_borsatto1",
+            "grupo": "rest_borsatto1",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "rest_borsatto1"
+        },
+        {
+            "nome": "rest_cupim",
+            "grupo": "rest_cupim",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "rest_cupim"
+        },
+        {
+            "nome": "rest_cupim",
+            "grupo": "rest_cupim",
+            "endereco": "10.8.0.172",
+            "porta": 3306,
+            "database": "rest_cupim"
+        },  
+        {
+            "nome": "rest_cupim",
+            "grupo": "rest_cupim",
+            "endereco": "10.8.0.64",
+            "porta": 3306,
+            "database": "rest_cupim"
+        },
+        {
+            "nome": "rest_cupim",
+            "grupo": "rest_cupim",
+            "endereco": "10.8.0.170",
+            "porta": 3306,
+            "database": "rest_cupim"
+        },                          
+        {
+            "nome": "rest_estreladaserra",
+            "grupo": "rest_estreladaserra",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "rest_estreladaserra"
+        },
+        {
+            "nome": "rest_estreladaserra",
+            "grupo": "rest_estreladaserra",
+            "endereco": "10.8.0.107",
+            "porta": 3306,
+            "database": "rest_estreladaserra"
+        },        
+        {
+            "nome": "rest_palhoca",
+            "grupo": "rest_palhoca",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "rest_palhoca"
+        },
+        {
+            "nome": "rest_palhoca",
+            "grupo": "rest_palhoca",
+            "endereco": "10.8.0.59",
+            "porta": 3306,
+            "database": "rest_palhoca"
+        },        
+        {
+            "nome": "rest_represa",
+            "grupo": "rest_represa",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "rest_represa"
+        },
+        {
+            "nome": "rest_texano",
+            "grupo": "rest_texano",
+            "endereco": "mysaas.com.br",
+            "porta": 3307,
+            "database": "rest_texano"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.30",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.31",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.32",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.33",
+            "porta": 3306,
+            "database": "pelanda"
+        },        
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.39",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.48",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.53",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.65",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.69",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.81",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.83",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.84",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.87",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.94",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.135",
+            "porta": 3306,
+            "database": "pelanda"
+        },        
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.136",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.137",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.145",
+            "porta": 3306,
+            "database": "pelanda"
+        },        
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.166",
+            "porta": 3306,
+            "database": "pelanda"
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.166",
+            "porta": 3306,
+            "database": "pelanda"
+        },                
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.167",
+            "porta": 3306,
+            "database": "pelanda"
+        },        
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.99",
+            "porta": 3306,
+            "database": "pelanda"
+        },        
+        {
+            "nome": "posto_dinossauro",
+            "grupo": "posto_dinossauro",
+            "endereco": "10.8.0.49",
+            "porta": 3306,
+            "database": "posto_dinossauro"
+        },
+        {
+            "nome": "posto_dinossauro",
+            "grupo": "posto_dinossauro",
+            "endereco": "10.8.0.57",
+            "porta": 3306,
+            "database": "posto_dinossauro"
+        },
+        {
+            "nome": "posto_dinossauro",
+            "grupo": "posto_dinossauro",
+            "endereco": "10.8.0.72",
+            "porta": 3306,
+            "database": "posto_dinossauro"
+        }                      
+    ]
+}

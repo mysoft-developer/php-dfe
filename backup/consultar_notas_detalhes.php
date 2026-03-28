@@ -940,7 +940,7 @@ $idtsProcessados = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $acao = isset($_POST['acao']) ? trim((string) $_POST['acao']) : '';
-    $acoesPermitidas = ['consultarX', 'validarX', 'acerto_w', 'acerto_v', 'enviarX', 'cancelarX', 'inutilizarX', 'removercancelamento'];
+    $acoesPermitidas = ['consultarX', 'validarX', 'acerto_w', 'acerto_v', 'enviarX', 'cancelarX', 'inutilizarX'];
     $statusEncerrados = ['100', '101', '102', '150'];
 
     $idtsSelecionados = isset($_POST['idts']) && is_array($_POST['idts']) ? $_POST['idts'] : [];
@@ -1930,15 +1930,6 @@ function validarEnvio(acao) {
     salvarEstadoUiDebounce();
     return true;
 }
-function validarEnvioLink(evento, acao) {
-    if (evento && evento.preventDefault) {
-        evento.preventDefault();
-    }
-    if (!validarEnvio(acao)) {
-        return false;
-    }
-    return enviarFormularioAjax(evento || null);
-}
 function enviarFormularioAjax(evento) {
     if (evento && evento.preventDefault) {
         evento.preventDefault();
@@ -2139,7 +2130,6 @@ window.addEventListener('DOMContentLoaded', function() {
                     <div class="mini-actions">
                         <span class="text-link" onclick="marcarTodos()">Marcar visíveis</span>
                         <span class="text-link" onclick="desmarcarTodos()">Desmarcar visíveis</span>
-                        <span style="margin-left:auto; min-width:calc((100% - 20px) / 3); text-align:center;"><span class="text-link" onclick="return validarEnvioLink(event, 'removercancelamento');">Remover Cancelamento</span></span>
                     </div>
                 </form>
             </section>
