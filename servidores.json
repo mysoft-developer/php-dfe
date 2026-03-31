@@ -64,6 +64,13 @@
             "database": "erp_artpaes"
         },
         {
+            "nome": "erp_artpaes",
+            "grupo": "erp_artpaes",
+            "endereco": "10.8.0.185",
+            "porta": 3306,
+            "database": "erp_artpaes"
+        },        
+        {
             "nome": "erp_batatudinha",
             "grupo": "erp_batatudinha",
             "endereco": "mysaas.com.br",
