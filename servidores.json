@@ -1498,13 +1498,6 @@
             "endereco": "10.8.0.166",
             "porta": 3306,
             "database": "pelanda"
-        },
-        {
-            "nome": "pelanda",
-            "grupo": "pelanda",
-            "endereco": "10.8.0.166",
-            "porta": 3306,
-            "database": "pelanda"
         },                
         {
             "nome": "pelanda",
