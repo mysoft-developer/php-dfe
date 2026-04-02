@@ -1131,6 +1131,13 @@
         {
             "nome": "posto_pelanda22",
             "grupo": "posto_pelanda22",
+            "endereco": "10.8.0.70",
+            "porta": 3306,
+            "database": "posto"
+        },         
+        {
+            "nome": "posto_pelanda22",
+            "grupo": "posto_pelanda22",
             "endereco": "10.8.0.71",
             "porta": 3306,
             "database": "posto"
@@ -1526,6 +1533,48 @@
             "endereco": "10.8.0.72",
             "porta": 3306,
             "database": "posto_dinossauro"
-        }                      
+        },
+        {
+            "nome": "benassi_ctba",
+            "grupo": "benassi_ctba",
+            "endereco": "10.8.0.25",
+            "porta": 3306,
+            "database": "benassi_ctba"
+        },                      
+        {
+            "nome": "benassi_rio",
+            "grupo": "benassi_rio",
+            "endereco": "10.8.0.25",
+            "porta": 3306,
+            "database": "benassi_rio"
+        },                      
+        {
+            "nome": "benassi_web",
+            "grupo": "benassi_web",
+            "endereco": "10.8.0.25",
+            "porta": 3306,
+            "database": "benassi_web"
+        },
+        {
+            "nome": "erp_benassi_rio",
+            "grupo": "erp_benassi_rio",
+            "endereco": "10.8.0.25",
+            "porta": 3306,
+            "database": "erp_benassi_rio"
+        },          
+        {
+            "nome": "erp_bnrj",
+            "grupo": "erp_bnrj",
+            "endereco": "10.8.0.25",
+            "porta": 3306,
+            "database": "erp_bnrj"
+        },
+        {
+            "nome": "erp_hlog",
+            "grupo": "erp_hlog",
+            "endereco": "10.8.0.25",
+            "porta": 3306,
+            "database": "erp_hlog"
+        }        
     ]
 }

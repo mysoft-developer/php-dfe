@@ -1,0 +1,101 @@
+.panel-form form.form-upload-emissores {
+    grid-template-columns: minmax(320px, 1fr) auto;
+}
+
+.panel-form-local {
+    padding: 18px;
+}
+
+.panel-form-local .local-filter-row {
+    display: grid;
+    grid-template-columns: 220px 220px 120px;
+    gap: 12px;
+    align-items: end;
+}
+
+.panel-form-local select,
+.panel-form-local input[type="text"],
+.panel-form-local input[type="file"],
+.panel-form form input[type="file"],
+.panel-form form select {
+    width: 100%;
+    height: 46px;
+    padding: 0 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(111, 136, 171, 0.28);
+    background: rgba(255, 255, 255, 0.96);
+    color: var(--text);
+    outline: none;
+}
+
+.panel-form-local select:focus,
+.panel-form form input[type="file"]:focus,
+.panel-form form select:focus {
+    border-color: rgba(47, 125, 225, 0.52);
+    box-shadow: 0 0 0 4px rgba(47, 125, 225, 0.10);
+}
+
+.message-stack {
+    display: grid;
+    gap: 12px;
+}
+
+.message-panel {
+    padding: 16px 18px;
+}
+
+.message-line {
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.92);
+}
+
+.message-line.ok {
+    border-color: rgba(47, 157, 87, 0.26);
+    color: #256c3f;
+}
+
+.message-line.erro {
+    border-color: rgba(216, 76, 76, 0.26);
+    color: #a84545;
+}
+
+.message-line.info {
+    color: #1f3e63;
+    font-weight: 600;
+}
+
+.table-wrap table {
+    min-width: 1700px;
+}
+
+.table-wrap tbody tr.linha-grupo td {
+    background: #e9eef5 !important;
+    color: #17324d;
+    font-weight: 800;
+    font-size: 15px;
+}
+
+.table-wrap tbody tr.linha-idt-destacada td {
+    transition: background-color 0.2s ease;
+}
+
+.surface-head .toolbar-inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.toolbar-inline .counter-pill strong {
+    margin-left: 6px;
+}
+
+@media (max-width: 900px) {
+    .panel-form form.form-upload-emissores,
+    .panel-form-local .local-filter-row {
+        grid-template-columns: 1fr;
+    }
+}

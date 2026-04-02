@@ -1,0 +1,74 @@
+.panel-form form.form-consulta-idt {
+    grid-template-columns: 130px 180px minmax(320px, 1fr) auto;
+}
+
+.panel-form form.form-consulta-idt input[type="text"],
+.panel-form form.form-consulta-idt input[type="file"] {
+    width: 100%;
+    height: 46px;
+    padding: 0 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(111, 136, 171, 0.28);
+    background: rgba(255, 255, 255, 0.96);
+    color: var(--text);
+    outline: none;
+}
+
+.panel-form form.form-consulta-idt input[type="text"]:focus,
+.panel-form form.form-consulta-idt input[type="file"]:focus {
+    border-color: rgba(47, 125, 225, 0.52);
+    box-shadow: 0 0 0 4px rgba(47, 125, 225, 0.10);
+}
+
+.message-stack {
+    display: grid;
+    gap: 12px;
+}
+
+.message-panel {
+    padding: 16px 18px;
+}
+
+.message-line {
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.92);
+}
+
+.message-line.ok {
+    border-color: rgba(47, 157, 87, 0.26);
+    color: #256c3f;
+}
+
+.message-line.erro {
+    border-color: rgba(216, 76, 76, 0.26);
+    color: #a84545;
+}
+
+.message-line.info {
+    color: #1f3e63;
+    font-weight: 600;
+}
+
+.table-wrap table {
+    min-width: 1200px;
+}
+
+.surface-head .toolbar-inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.toolbar-inline .counter-pill strong {
+    margin-left: 6px;
+}
+
+@media (max-width: 1040px) {
+    .panel-form form.form-consulta-idt {
+        grid-template-columns: 1fr;
+    }
+}

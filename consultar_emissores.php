@@ -392,212 +392,211 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 } else {
     $jsonEmUso = lerConteudoArquivo($arquivoCacheJson);
 }
+$versaoCssBase = @filemtime(__DIR__ . '/consultar_notas_servidores.css');
+$versaoCssLocal = @filemtime(__DIR__ . '/consultar_emissores.css');
+$totalResultados = count($resultados);
+$totalOrigens = count($origensDisponiveis);
+$totalModelos = count($modelosDisponiveis);
+$totalErros = count($mensagensErro);
+$cacheExiste = file_exists($arquivoCacheJson);
+$nomeCacheAtual = $cacheExiste ? basename($arquivoCacheJson) : 'nenhum arquivo salvo';
+$statusPainel = 'Envie um JSON ou use o arquivo em cache para consultar os emissores.';
+if ($consultado) {
+    if ($totalResultados > 0) {
+        $statusPainel = 'Consulta concluída com ' . $totalResultados . ' registro(s) encontrados.';
+    } elseif ($totalErros === 0) {
+        $statusPainel = 'Consulta concluída. Nenhum registro encontrado.';
+    } else {
+        $statusPainel = 'Consulta concluída com alertas. Verifique as mensagens exibidas abaixo.';
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Consulta de Emissores por JSON</title>
-<style>
-    body {
-        font-family: Arial, Helvetica, sans-serif;
-        font-size: 14px;
-        margin: 20px;
-        background: #f5f5f5;
-        color: #222;
-    }
-    h1 {
-        margin: 0 0 15px 0;
-        font-size: 22px;
-    }
-    .box {
-        background: #fff;
-        border: 1px solid #d9d9d9;
-        border-radius: 6px;
-        padding: 12px;
-        margin-bottom: 15px;
-    }
-    .linha {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-    }
-    label {
-        font-weight: bold;
-    }
-    input[type="file"], select {
-        padding: 6px;
-        border: 1px solid #bbb;
-        border-radius: 4px;
-        background: #fff;
-    }
-    button {
-        padding: 8px 14px;
-        border: 1px solid #999;
-        border-radius: 4px;
-        background: #efefef;
-        cursor: pointer;
-        font-size: 14px;
-    }
-    button:hover {
-        background: #e4e4e4;
-    }
-    .erro {
-        color: #b30000;
-        margin: 4px 0;
-    }
-    .ok {
-        color: #0b6b0b;
-        margin: 4px 0;
-        font-weight: bold;
-    }
-    .info {
-        color: #333;
-        margin: 4px 0;
-    }
-    .tabela-wrap {
-        overflow-x: auto;
-        background: #fff;
-        border: 1px solid #d9d9d9;
-        border-radius: 6px;
-    }
-    table {
-        border-collapse: collapse;
-        width: 100%;
-        min-width: 1700px;
-    }
-    th, td {
-        border: 1px solid #dcdcdc;
-        padding: 6px 8px;
-        text-align: left;
-        vertical-align: top;
-        white-space: nowrap;
-    }
-    th {
-        background: #f0f0f0;
-    }
-    tr:nth-child(even) td {
-        background: #fafafa;
-    }
-    tr.linha-idt-destacada td {
-        transition: background-color 0.2s ease;
-    }
-    tr.linha-grupo td {
-        background: #e9ecef !important;
-        font-weight: bold;
-        font-size: 15px;
-    }
-</style>
+<link rel="stylesheet" href="consultar_notas_servidores.css<?php echo $versaoCssBase ? '?v=' . $versaoCssBase : ''; ?>">
+<link rel="stylesheet" href="consultar_emissores.css<?php echo $versaoCssLocal ? '?v=' . $versaoCssLocal : ''; ?>">
 </head>
 <body>
-
-<h1>Consulta de Emissores por JSON</h1>
-
-<div class="box">
-    <form method="post" enctype="multipart/form-data">
-        <div class="linha">
-            <label for="arquivo_json">Arquivo JSON:</label>
-            <input type="file" name="arquivo_json" id="arquivo_json" accept=".json,application/json">
-            <button type="submit">Consultar</button>
+<div class="app-shell">
+    <header class="topbar">
+        <div class="title-row">
+            <div class="title-block">
+                <h1>Consulta de Emissores por JSON</h1>
+                <p>Mesmo padrão visual dos painéis principais, mantendo a consulta original de emissores e os filtros locais da tabela.</p>
+            </div>
+            <div class="tag-row">
+                <span class="chip"><span>Cache</span> <strong><?php echo h($nomeCacheAtual); ?></strong></span>
+                <span class="chip"><span>Origens</span> <strong><?php echo (int) $totalOrigens; ?></strong></span>
+                <span class="chip"><span>Modelos</span> <strong><?php echo (int) $totalModelos; ?></strong></span>
+                <span class="chip live"><span>Registros</span> <strong><?php echo (int) $totalResultados; ?></strong></span>
+            </div>
         </div>
-    </form>
 
-    <div class="info">
-        <?php if (file_exists($arquivoCacheJson)): ?>
-            Cache atual: <strong><?php echo h(basename($arquivoCacheJson)); ?></strong>
-        <?php else: ?>
-            Cache atual: <strong>nenhum arquivo salvo</strong>
+        <div class="toolbar-grid">
+            <section class="panel panel-form">
+                <form class="form-upload-emissores" method="post" enctype="multipart/form-data">
+                    <div class="field">
+                        <label for="arquivo_json">Arquivo JSON</label>
+                        <input type="file" name="arquivo_json" id="arquivo_json" accept=".json,application/json">
+                    </div>
+                    <div>
+                        <button class="botao" type="submit">Consultar</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="telemetry">
+                <div class="panel metric">
+                    <div class="label">Cache ativo</div>
+                    <div class="value" style="font-size: 20px;"><?php echo $cacheExiste ? 'SIM' : 'NÃO'; ?></div>
+                    <div class="hint"><?php echo h($nomeCacheAtual); ?></div>
+                </div>
+                <div class="panel metric ok">
+                    <div class="label">Registros</div>
+                    <div class="value"><?php echo (int) $totalResultados; ?></div>
+                    <div class="hint">Total retornado na última consulta</div>
+                </div>
+                <div class="panel metric warn">
+                    <div class="label">Origens</div>
+                    <div class="value"><?php echo (int) $totalOrigens; ?></div>
+                    <div class="hint">Valores únicos disponíveis no filtro</div>
+                </div>
+                <div class="panel metric">
+                    <div class="label">Modelos</div>
+                    <div class="value"><?php echo (int) $totalModelos; ?></div>
+                    <div class="hint">Modelos únicos encontrados</div>
+                </div>
+                <div class="panel metric danger">
+                    <div class="label">Alertas</div>
+                    <div class="value"><?php echo (int) $totalErros; ?></div>
+                    <div class="hint">Mensagens de erro durante a leitura</div>
+                </div>
+            </section>
+        </div>
+
+        <div class="status-bar">
+            <span class="status-dot"></span>
+            <div class="status-text"><?php echo h($statusPainel); ?></div>
+            <span class="cache-pill <?php echo $cacheExiste ? 'cache-local' : 'cache-empty'; ?>"><?php echo $cacheExiste ? 'Cache local disponível' : 'Sem cache salvo'; ?></span>
+        </div>
+    </header>
+
+    <main class="content-shell">
+        <?php if (count($mensagensOk) > 0 || count($mensagensErro) > 0 || !$consultado): ?>
+        <section class="panel message-panel">
+            <div class="message-stack">
+                <?php if (!$consultado): ?>
+                    <div class="message-line info">Envie um arquivo JSON novo ou reaproveite o cache salvo para iniciar a consulta.</div>
+                <?php endif; ?>
+
+                <?php foreach ($mensagensOk as $msg): ?>
+                    <div class="message-line ok"><?php echo h($msg); ?></div>
+                <?php endforeach; ?>
+
+                <?php foreach ($mensagensErro as $erro): ?>
+                    <div class="message-line erro"><?php echo h($erro); ?></div>
+                <?php endforeach; ?>
+
+                <?php if ($consultado && count($resultados) === 0 && count($mensagensErro) === 0): ?>
+                    <div class="message-line info">Nenhum registro encontrado para os emissores consultados.</div>
+                <?php endif; ?>
+            </div>
+        </section>
         <?php endif; ?>
-    </div>
-</div>
 
-<?php if (count($mensagensOk) > 0): ?>
-<div class="box">
-    <?php foreach ($mensagensOk as $msg): ?>
-        <div class="ok"><?php echo h($msg); ?></div>
-    <?php endforeach; ?>
-</div>
-<?php endif; ?>
+        <?php if (count($resultados) > 0): ?>
+        <section class="panel panel-form-local">
+            <div class="local-filter-row">
+                <div class="field">
+                    <label for="filtro_origem">Origem</label>
+                    <select id="filtro_origem">
+                        <option value="">Todas</option>
+                        <?php foreach ($origensDisponiveis as $origem): ?>
+                            <option value="<?php echo h($origem); ?>"><?php echo h($origem); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
 
-<?php if (count($mensagensErro) > 0): ?>
-<div class="box">
-    <?php foreach ($mensagensErro as $erro): ?>
-        <div class="erro"><?php echo h($erro); ?></div>
-    <?php endforeach; ?>
-</div>
-<?php endif; ?>
+                <div class="field">
+                    <label for="filtro_modelo">Modelo</label>
+                    <select id="filtro_modelo">
+                        <option value="">Todos</option>
+                        <?php foreach ($modelosDisponiveis as $modelo): ?>
+                            <option value="<?php echo h($modelo); ?>"><?php echo h($modelo); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
 
-<?php if ($consultado): ?>
-<div class="box">
-    <?php if (count($resultados) > 0): ?>
-        <div class="ok">Foram encontrados <?php echo count($resultados); ?> registro(s).</div>
-    <?php elseif (count($mensagensErro) === 0): ?>
-        <div class="info">Nenhum registro encontrado.</div>
-    <?php endif; ?>
+                <div>
+                    <button class="botao" type="button" onclick="limparFiltrosTabela()">Limpar</button>
+                </div>
+            </div>
+        </section>
+        <?php endif; ?>
+
+        <section class="surface">
+            <div class="surface-head">
+                <div>
+                    <div class="surface-title">Resultado da consulta</div>
+                    <div class="surface-subtitle">Agrupado por origem. Quando o mesmo IDT aparece mais de uma vez, as linhas recebem a mesma cor para facilitar a identificação.</div>
+                </div>
+                <div class="toolbar-inline">
+                    <span class="counter-pill">Cache <strong><?php echo h($nomeCacheAtual); ?></strong></span>
+                    <span class="counter-pill">Total <strong><?php echo (int) $totalResultados; ?></strong></span>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table id="tabela_resultados">
+                    <thead>
+                        <tr>
+                            <th>Nome JSON</th>
+                            <th>Endereço JSON</th>
+                            <th>Porta JSON</th>
+                            <th>Database JSON</th>
+                            <?php foreach ($colunasResultado as $coluna): ?>
+                                <th><?php echo h(tituloColuna($coluna)); ?></th>
+                            <?php endforeach; ?>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (count($resultados) > 0): ?>
+                            <?php $origemAtual = null; ?>
+                            <?php foreach ($resultados as $linha): ?>
+                                <?php $origemLinha = isset($linha['origem']) ? formatarOrigem($linha['origem']) : ''; ?>
+                                <?php if ($origemAtual !== $origemLinha): ?>
+                                    <tr class="linha-grupo" data-grupo-origem="<?php echo h($origemLinha); ?>">
+                                        <td colspan="<?php echo 4 + count($colunasResultado); ?>">Origem: <?php echo h($origemLinha === '' ? '(sem origem)' : $origemLinha); ?></td>
+                                    </tr>
+                                    <?php $origemAtual = $origemLinha; ?>
+                                <?php endif; ?>
+                                <tr data-idt="<?php echo h(isset($linha['idt']) ? $linha['idt'] : ''); ?>" data-origem="<?php echo h($origemLinha); ?>" data-modelo="<?php echo h(isset($linha['modelo_nota_fiscal']) ? $linha['modelo_nota_fiscal'] : ''); ?>">
+                                    <td><?php echo h($linha['_json_nome']); ?></td>
+                                    <td><?php echo h($linha['_json_endereco']); ?></td>
+                                    <td><?php echo h($linha['_json_porta']); ?></td>
+                                    <td><?php echo h($linha['_json_database']); ?></td>
+                                    <?php foreach ($colunasResultado as $coluna): ?>
+                                        <td><?php echo h(formatarValorColuna($coluna, isset($linha[$coluna]) ? $linha[$coluna] : '')); ?></td>
+                                    <?php endforeach; ?>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="empty-state" id="mensagemVazia" style="<?php echo count($resultados) > 0 ? 'display:none;' : ''; ?>">
+                <?php echo h($consultado ? 'Nenhum registro encontrado.' : 'Envie um JSON e clique em Consultar para carregar os emissores.'); ?>
+            </div>
+        </section>
+    </main>
 </div>
-<?php endif; ?>
 
 <?php if (count($resultados) > 0): ?>
-<div class="box">
-    <div class="linha">
-        <label for="filtro_origem">Origem:</label>
-        <select id="filtro_origem">
-            <option value="">Todas</option>
-            <?php foreach ($origensDisponiveis as $origem): ?>
-                <option value="<?php echo h($origem); ?>"><?php echo h($origem); ?></option>
-            <?php endforeach; ?>
-        </select>
-
-        <label for="filtro_modelo">Modelo:</label>
-        <select id="filtro_modelo">
-            <option value="">Todos</option>
-            <?php foreach ($modelosDisponiveis as $modelo): ?>
-                <option value="<?php echo h($modelo); ?>"><?php echo h($modelo); ?></option>
-            <?php endforeach; ?>
-        </select>
-
-        <button type="button" onclick="limparFiltrosTabela()">Limpar</button>
-    </div>
-</div>
-
-<div class="tabela-wrap">
-    <table id="tabela_resultados">
-        <thead>
-            <tr>
-                <th>Nome JSON</th>
-                <th>Endereço JSON</th>
-                <th>Porta JSON</th>
-                <th>Database JSON</th>
-                <?php foreach ($colunasResultado as $coluna): ?>
-                    <th><?php echo h(tituloColuna($coluna)); ?></th>
-                <?php endforeach; ?>
-            </tr>
-        </thead>
-        <tbody>
-            <?php $origemAtual = null; ?>
-            <?php foreach ($resultados as $linha): ?>
-                <?php $origemLinha = isset($linha['origem']) ? formatarOrigem($linha['origem']) : ''; ?>
-                <?php if ($origemAtual !== $origemLinha): ?>
-                    <tr class="linha-grupo" data-grupo-origem="<?php echo h($origemLinha); ?>">
-                        <td colspan="<?php echo 4 + count($colunasResultado); ?>">Origem: <?php echo h($origemLinha === '' ? '(sem origem)' : $origemLinha); ?></td>
-                    </tr>
-                    <?php $origemAtual = $origemLinha; ?>
-                <?php endif; ?>
-                <tr data-idt="<?php echo h(isset($linha['idt']) ? $linha['idt'] : ''); ?>" data-origem="<?php echo h($origemLinha); ?>" data-modelo="<?php echo h(isset($linha['modelo_nota_fiscal']) ? $linha['modelo_nota_fiscal'] : ''); ?>">
-                    <td><?php echo h($linha['_json_nome']); ?></td>
-                    <td><?php echo h($linha['_json_endereco']); ?></td>
-                    <td><?php echo h($linha['_json_porta']); ?></td>
-                    <td><?php echo h($linha['_json_database']); ?></td>
-                    <?php foreach ($colunasResultado as $coluna): ?>
-                        <td><?php echo h(formatarValorColuna($coluna, isset($linha[$coluna]) ? $linha[$coluna] : '')); ?></td>
-                    <?php endforeach; ?>
-                </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
-</div>
-
 <script>
 function aplicarFiltrosTabela() {
     var filtroOrigem = document.getElementById('filtro_origem').value;
