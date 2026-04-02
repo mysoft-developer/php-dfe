@@ -1117,13 +1117,6 @@
         {
             "nome": "posto_pelanda22",
             "grupo": "posto_pelanda22",
-            "endereco": "10.8.0.22",
-            "porta": 3306,
-            "database": "posto"
-        },
-        {
-            "nome": "posto_pelanda22",
-            "grupo": "posto_pelanda22",
             "endereco": "10.8.0.23",
             "porta": 3306,
             "database": "posto"
@@ -1463,7 +1456,7 @@
             "endereco": "10.8.0.94",
             "porta": 3306,
             "database": "pelanda"
-        },
+        },        
         {
             "nome": "pelanda",
             "grupo": "pelanda",

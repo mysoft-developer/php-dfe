@@ -1,0 +1,184 @@
+{
+    "servidores": [
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.30",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.30",
+            "porta_seq": 3306
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.31",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.31",
+            "porta_seq": 3306
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.32",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.32",
+            "porta_seq": 3306
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.33",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.33",
+            "porta_seq": 3306
+        },        
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.39",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.39",
+            "porta_seq": 3306
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.48",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.48",
+            "porta_seq": 3306
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.53",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.53",
+            "porta_seq": 3306
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.65",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.65",
+            "porta_seq": 3306
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.69",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.69",
+            "porta_seq": 3306
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.81",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.81",
+            "porta_seq": 3306
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.83",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.83",
+            "porta_seq": 3306
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.84",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.84",
+            "porta_seq": 3306
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.87",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.87",
+            "porta_seq": 3306
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.135",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.135",
+            "porta_seq": 3306
+        },        
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.136",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.136",
+            "porta_seq": 3306
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.137",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.137",
+            "porta_seq": 3306
+        },
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.145",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.145",
+            "porta_seq": 3306
+        },        
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.166",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.166",
+            "porta_seq": 3306
+        },                
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.167",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.167",
+            "porta_seq": 3306
+        },        
+        {
+            "nome": "pelanda",
+            "grupo": "pelanda",
+            "endereco": "10.8.0.99",
+            "porta": 3306,
+            "database": "pelanda",
+            "endereco_seq": "10.8.0.99",
+            "porta_seq": 3306
+        }
+    ]
+}

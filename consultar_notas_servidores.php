@@ -89,6 +89,33 @@ function localizarIndiceServidorConfig(array $servidoresConfig, string $endereco
     return -1;
 }
 
+function normalizarTextoFiltro(string $texto): string
+{
+    $texto = trim($texto);
+    if ($texto === '') {
+        return '';
+    }
+
+    return function_exists('mb_strtolower')
+        ? mb_strtolower($texto, 'UTF-8')
+        : strtolower($texto);
+}
+
+function obterNomeSimplificadoFiltro(string $nome): string
+{
+    $nome = trim($nome);
+    if ($nome === '') {
+        return '';
+    }
+
+    $posicao = strpos($nome, '_');
+    if ($posicao !== false) {
+        $nome = substr($nome, $posicao + 1);
+    }
+
+    return $nome;
+}
+
 $configuracao = lerJsonArquivo($arquivoConfiguracao, 'config.json');
 $servidoresJson = lerJsonArquivo($arquivoServidores, 'servidores.json');
 
@@ -104,6 +131,10 @@ $diasConsulta = isset($_GET['dias']) ? (int) $_GET['dias'] : 7;
 if ($diasConsulta <= 0) {
     $diasConsulta = 7;
 }
+$filtroCliente = isset($_GET['filtro_cliente']) ? trim((string) $_GET['filtro_cliente']) : '';
+$filtroTrecho = isset($_GET['filtro_trecho']) ? trim((string) $_GET['filtro_trecho']) : '';
+$filtroClienteNormalizado = normalizarTextoFiltro($filtroCliente);
+$filtroTrechoNormalizado = normalizarTextoFiltro($filtroTrecho);
 $executarConsulta = isset($_GET['consultar']) && $_GET['consultar'] === '1';
 
 $servidoresConfig = isset($configuracao['servidores']) && is_array($configuracao['servidores'])
@@ -126,6 +157,18 @@ foreach ($servidoresJson['servidores'] as $indiceItem => $item) {
         continue;
     }
 
+    $nomeSimplificado = obterNomeSimplificadoFiltro($nome);
+    $nomeSimplificadoNormalizado = normalizarTextoFiltro($nomeSimplificado);
+    $nomeNormalizado = normalizarTextoFiltro($nome);
+
+    if ($filtroClienteNormalizado !== '' && $nomeSimplificadoNormalizado !== $filtroClienteNormalizado) {
+        continue;
+    }
+
+    if ($filtroTrechoNormalizado !== '' && strpos($nomeNormalizado, $filtroTrechoNormalizado) === false) {
+        continue;
+    }
+
     $servidoresFront[] = [
         'indiceItem' => (string) $indiceItem,
         'indiceServidor' => (string) localizarIndiceServidorConfig($servidoresConfig, $endereco, $porta),
@@ -137,11 +180,28 @@ foreach ($servidoresJson['servidores'] as $indiceItem => $item) {
     ];
 }
 
+$partesFiltroStatus = [];
+if ($filtroCliente !== '') {
+    $partesFiltroStatus[] = 'cliente: ' . $filtroCliente;
+}
+if ($filtroTrecho !== '') {
+    $partesFiltroStatus[] = 'trecho: ' . $filtroTrecho;
+}
+$descricaoFiltroStatus = count($partesFiltroStatus) > 0
+    ? ' com filtros ' . implode(' | ', $partesFiltroStatus)
+    : '';
+
 $textoStatusInicial = $executarConsulta
-    ? 'Preparando consulta concorrente pelo servidores.json com até 15 consultas simultâneas...'
+    ? 'Preparando consulta concorrente pelo servidores.json com até 15 consultas simultâneas' . $descricaoFiltroStatus . '...'
     : 'Clique em Consultar para ler o servidores.json e verificar as quantidades.';
 
-error_log('CONSULTAR_NOTAS_SERVIDORES pagina iniciada. executar=' . ($executarConsulta ? '1' : '0') . ' dias=' . $diasConsulta);
+error_log(
+    'CONSULTAR_NOTAS_SERVIDORES pagina iniciada. executar=' . ($executarConsulta ? '1' : '0') .
+    ' dias=' . $diasConsulta .
+    ' filtro_cliente=' . $filtroCliente .
+    ' filtro_trecho=' . $filtroTrecho .
+    ' total_filtrado=' . count($servidoresFront)
+);
 ?>
 <!doctype html>
 <html lang="pt-BR">
@@ -150,6 +210,21 @@ error_log('CONSULTAR_NOTAS_SERVIDORES pagina iniciada. executar=' . ($executarCo
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Consulta de Notas por Servidores</title>
 <link rel="stylesheet" href="consultar_notas_servidores.css">
+<style>
+.panel-form form {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 120px auto auto;
+}
+.botao-secundario {
+    background: linear-gradient(180deg, rgba(240, 246, 255, 0.98), rgba(226, 236, 249, 0.98));
+    color: #1f3e63;
+    border-color: rgba(86, 111, 145, 0.28);
+}
+@media (max-width: 760px) {
+    .panel-form form {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
 <script>
 var SERVIDORES_LISTA = <?= json_encode($servidoresFront, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 var EXECUTAR_CONSULTA_INICIAL = <?= $executarConsulta ? 'true' : 'false' ?>;
@@ -183,6 +258,17 @@ function atualizarStatus(texto) {
     var el = document.getElementById('statusAtual');
     if (el) {
         el.textContent = texto;
+    }
+}
+
+function limparFiltros() {
+    var campoCliente = document.getElementById('filtro_cliente');
+    var campoTrecho = document.getElementById('filtro_trecho');
+    if (campoCliente) {
+        campoCliente.value = '';
+    }
+    if (campoTrecho) {
+        campoTrecho.value = '';
     }
 }
 
@@ -343,6 +429,7 @@ function reiniciarConsulta() {
     ESTADO.resumo = { bases: 0, ok: 0, erro: 0, total: 0, fim: '-' };
     ESTADO.consultando = true;
     ESTADO.processados = 0;
+    ESTADO.totalItens = SERVIDORES_LISTA.length;
     aplicarResumoNaTela();
     renderizarTabela();
     atualizarIndicadorCache('Consulta online em andamento', 'cache-online');
@@ -495,11 +582,22 @@ window.addEventListener('DOMContentLoaded', function() {
                         <input type="text" id="origem" value="servidores.json" readonly>
                     </div>
                     <div class="field">
+                        <label for="filtro_cliente">Cliente</label>
+                        <input type="text" id="filtro_cliente" name="filtro_cliente" value="<?= htmlspecialchars($filtroCliente, ENT_QUOTES, 'UTF-8') ?>" placeholder="Ex.: pelanda22">
+                    </div>
+                    <div class="field">
+                        <label for="filtro_trecho">Trecho</label>
+                        <input type="text" id="filtro_trecho" name="filtro_trecho" value="<?= htmlspecialchars($filtroTrecho, ENT_QUOTES, 'UTF-8') ?>" placeholder="Like no nome original">
+                    </div>
+                    <div class="field">
                         <label for="dias">Dias</label>
                         <input type="number" id="dias" name="dias" min="1" value="<?= (int) $diasConsulta ?>">
                     </div>
                     <div>
                         <button class="botao" id="botaoConsultar" type="submit">Consultar</button>
+                    </div>
+                    <div>
+                        <button class="botao botao-secundario" type="button" onclick="limparFiltros()">Limpar</button>
                     </div>
                 </form>
             </section>
