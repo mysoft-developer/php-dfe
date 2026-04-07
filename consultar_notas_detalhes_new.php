@@ -297,7 +297,7 @@ function carregarLinhasProblema(mysqli $conexao, string $nomeBanco, int $diasCon
         INNER JOIN `{$nomeBancoEscapado}`.`notas_fiscais` b
             ON a.idt = b.idt
            AND a.origem = b.`{$campoOrigemNotasEscapado}`
-        WHERE a.status NOT IN (100, 150, 101, 155, 102)
+        WHERE a.status NOT IN (100, 150, 101, 102)
           AND b.emissao >= DATE_SUB(NOW(), INTERVAL {$diasConsultaSql} DAY)
         ORDER BY b.emissao DESC, a.idt DESC
     ";
@@ -945,7 +945,7 @@ $idtsProcessados = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $acao = isset($_POST['acao']) ? trim((string) $_POST['acao']) : '';
     $acoesPermitidas = ['consultarX', 'validarX', 'acerto_w', 'acerto_v', 'enviarX', 'cancelarX', 'inutilizarX', 'removercancelamento'];
-    $statusEncerrados = ['100', '101', '102', '150', '155'];
+    $statusEncerrados = ['100', '101', '102', '150'];
 
     $idtsSelecionados = isset($_POST['idts']) && is_array($_POST['idts']) ? $_POST['idts'] : [];
     $idtsSelecionados = array_values(array_unique(array_filter(array_map(static function ($valor): string {
@@ -1599,74 +1599,10 @@ function obterLinhasFiltradas() {
         return descricaoOk && statusOk && operacaoOk && modeloOk;
     });
 }
-function montarDataHoraNota(item) {
-    var emissao = String((item && item.emissao) || '').trim();
-    var hora = String((item && item.hora) || '').trim();
-    if (emissao === '') {
-        return null;
-    }
-
-    var partesData = [];
-    if (emissao.indexOf('-') !== -1) {
-        partesData = emissao.split('-');
-    } else if (emissao.indexOf('/') !== -1) {
-        partesData = emissao.split('/');
-    }
-
-    if (partesData.length < 3) {
-        return null;
-    }
-
-    var ano = 0;
-    var mes = 0;
-    var dia = 0;
-
-    if (String(partesData[0] || '').length === 4) {
-        ano = parseInt(partesData[0], 10);
-        mes = parseInt(partesData[1], 10);
-        dia = parseInt(partesData[2], 10);
-    } else {
-        dia = parseInt(partesData[0], 10);
-        mes = parseInt(partesData[1], 10);
-        ano = parseInt(partesData[2], 10);
-    }
-
-    if (!ano || !mes || !dia) {
-        return null;
-    }
-
-    var horaPartes = hora.split(':');
-    var horaNumero = parseInt(horaPartes[0] || '0', 10);
-    var minutoNumero = parseInt(horaPartes[1] || '0', 10);
-    var segundoNumero = parseInt(horaPartes[2] || '0', 10);
-
-    if (isNaN(horaNumero)) { horaNumero = 0; }
-    if (isNaN(minutoNumero)) { minutoNumero = 0; }
-    if (isNaN(segundoNumero)) { segundoNumero = 0; }
-
-    var dataHora = new Date(ano, mes - 1, dia, horaNumero, minutoNumero, segundoNumero);
-    if (isNaN(dataHora.getTime())) {
-        return null;
-    }
-
-    return dataHora;
-}
-function linhaDentroJanelaAmarela(item) {
-    var dataHoraNota = montarDataHoraNota(item);
-    if (!dataHoraNota) {
-        return false;
-    }
-
-    var diferencaMs = Math.abs(Date.now() - dataHoraNota.getTime());
-    return diferencaMs <= (10 * 60 * 1000);
-}
 function montarClasseLinha(item) {
     var classes = [];
     if (String(item.modelo || '') === '65') {
         classes.push('linha-modelo-65');
-    }
-    if (linhaDentroJanelaAmarela(item)) {
-        classes.push('linha-alerta-horario');
     }
     if (item.destacar_vermelho) {
         classes.push('linha-problema');

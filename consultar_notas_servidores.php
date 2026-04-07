@@ -24,7 +24,6 @@ header('Cache-Control: private, max-age=600');
 header('X-Accel-Buffering: no');
 
 $arquivoConfiguracao = __DIR__ . '/config.json';
-$arquivoServidores = __DIR__ . '/servidores.json';
 $arquivoLogPhp = __DIR__ . '/consultar_notas_servidores.log';
 ini_set('log_errors', '1');
 ini_set('error_log', $arquivoLogPhp);
@@ -72,6 +71,99 @@ function lerJsonArquivo(string $arquivo, string $rotulo): array
     return $dados;
 }
 
+const SERVIDORES_TABELA_HOST = '10.8.0.6';
+const SERVIDORES_TABELA_PORTA = 3306;
+const SERVIDORES_TABELA_USUARIO = 'mysoftweb';
+const SERVIDORES_TABELA_SENHA = 'g3108f88';
+const SERVIDORES_TABELA_DATABASE = 'mysoft';
+
+function criarConexaoTabelaServidores()
+{
+    $conexao = mysqli_init();
+    if ($conexao === false) {
+        return false;
+    }
+
+    if (defined('MYSQLI_OPT_CONNECT_TIMEOUT')) {
+        @mysqli_options($conexao, MYSQLI_OPT_CONNECT_TIMEOUT, 120);
+    }
+
+    if (defined('MYSQLI_OPT_READ_TIMEOUT')) {
+        @mysqli_options($conexao, MYSQLI_OPT_READ_TIMEOUT, 600);
+    }
+
+    $ok = @mysqli_real_connect(
+        $conexao,
+        SERVIDORES_TABELA_HOST,
+        SERVIDORES_TABELA_USUARIO,
+        SERVIDORES_TABELA_SENHA,
+        SERVIDORES_TABELA_DATABASE,
+        SERVIDORES_TABELA_PORTA
+    );
+
+    if ($ok !== true) {
+        @mysqli_close($conexao);
+        return false;
+    }
+
+    @$conexao->set_charset('utf8mb4');
+    @$conexao->query('SET SESSION wait_timeout = 28800');
+    @$conexao->query('SET SESSION net_read_timeout = 600');
+    @$conexao->query('SET SESSION net_write_timeout = 600');
+
+    return $conexao;
+}
+
+function carregarServidoresTabela(): array
+{
+    $conexao = criarConexaoTabelaServidores();
+    if (!$conexao instanceof mysqli) {
+        $erro = mysqli_connect_error();
+        if (!is_string($erro) || $erro === '') {
+            $erro = 'Não foi possível conectar na tabela servidores.';
+        }
+        sairComErro($erro);
+    }
+
+    $sql = "
+        SELECT
+            nome,
+            grupo,
+            endereco,
+            porta,
+            `database`
+        FROM `servidores`
+        ORDER BY grupo, nome, `database`, endereco, porta
+    ";
+
+    $resultado = $conexao->query($sql);
+    if ($resultado === false) {
+        $erro = $conexao->error;
+        $conexao->close();
+        sairComErro('Erro ao consultar tabela servidores: ' . $erro);
+    }
+
+    $servidores = [];
+    while ($linha = $resultado->fetch_assoc()) {
+        if (!is_array($linha)) {
+            continue;
+        }
+
+        $servidores[] = [
+            'nome' => isset($linha['nome']) ? trim((string) $linha['nome']) : '',
+            'grupo' => isset($linha['grupo']) ? trim((string) $linha['grupo']) : '',
+            'endereco' => isset($linha['endereco']) ? trim((string) $linha['endereco']) : '',
+            'porta' => isset($linha['porta']) ? (int) $linha['porta'] : 3306,
+            'database' => isset($linha['database']) ? trim((string) $linha['database']) : ''
+        ];
+    }
+
+    $resultado->free();
+    $conexao->close();
+
+    return $servidores;
+}
+
 function localizarIndiceServidorConfig(array $servidoresConfig, string $endereco, int $porta): int
 {
     foreach ($servidoresConfig as $indice => $servidor) {
@@ -117,14 +209,14 @@ function obterNomeSimplificadoFiltro(string $nome): string
 }
 
 $configuracao = lerJsonArquivo($arquivoConfiguracao, 'config.json');
-$servidoresJson = lerJsonArquivo($arquivoServidores, 'servidores.json');
+$servidoresTabela = carregarServidoresTabela();
 
 if (empty($configuracao['mysql_usuario']) || !array_key_exists('mysql_senha', $configuracao)) {
     sairComErro('Configuração incompleta. Verifique mysql_usuario e mysql_senha.');
 }
 
-if (empty($servidoresJson['servidores']) || !is_array($servidoresJson['servidores'])) {
-    sairComErro('Nenhum servidor encontrado no servidores.json.');
+if (count($servidoresTabela) === 0) {
+    sairComErro('Nenhum servidor encontrado na tabela servidores do mysoft.');
 }
 
 $diasConsulta = isset($_GET['dias']) ? (int) $_GET['dias'] : 7;
@@ -142,7 +234,7 @@ $servidoresConfig = isset($configuracao['servidores']) && is_array($configuracao
     : [];
 
 $servidoresFront = [];
-foreach ($servidoresJson['servidores'] as $indiceItem => $item) {
+foreach ($servidoresTabela as $indiceItem => $item) {
     if (!is_array($item)) {
         continue;
     }
@@ -192,8 +284,8 @@ $descricaoFiltroStatus = count($partesFiltroStatus) > 0
     : '';
 
 $textoStatusInicial = $executarConsulta
-    ? 'Preparando consulta concorrente pelo servidores.json com até 15 consultas simultâneas' . $descricaoFiltroStatus . '...'
-    : 'Clique em Consultar para ler o servidores.json e verificar as quantidades.';
+    ? 'Preparando consulta concorrente pela tabela servidores com até 15 consultas simultâneas' . $descricaoFiltroStatus . '...'
+    : 'Clique em Consultar para ler a tabela servidores e verificar as quantidades.';
 
 error_log(
     'CONSULTAR_NOTAS_SERVIDORES pagina iniciada. executar=' . ($executarConsulta ? '1' : '0') .
@@ -341,6 +433,7 @@ function montarLinkQuantidade(linha) {
         '&nome=' + encodeURIComponent(linha.nome || '') +
         '&db=' + encodeURIComponent(linha.database || '') +
         '&dias=' + encodeURIComponent(DIAS_CONSULTA_ATUAL) +
+        '&grupo=' + encodeURIComponent(linha.grupo || '') +
         '&limpar_filtro=1';
     return '<a class="link-quantidade" href="' + escaparHtml(url) + '" target="_blank" rel="noopener noreferrer" onclick="window.open(this.href, \"_blank\", \"noopener,noreferrer\"); return false;">' + escaparHtml(linha.quantidade) + '</a>';
 }
@@ -385,16 +478,31 @@ function renderizarTabela() {
 function recalcularResumoPorLinhas() {
     var total = 0;
     var bases = 0;
+    var grupos = {};
     for (var i = 0; i < ESTADO.linhas.length; i++) {
-        var quantidade = String(ESTADO.linhas[i].quantidade == null ? '' : ESTADO.linhas[i].quantidade);
+        var linha = ESTADO.linhas[i] || {};
+        var quantidade = String(linha.quantidade == null ? '' : linha.quantidade);
         if (/^\d+$/.test(quantidade)) {
             var valor = Number(quantidade || 0);
-            total += valor;
+            var grupo = String(linha.grupo || '').trim();
+            var chaveGrupo = grupo !== '' ? grupo : ('__linha__' + i);
+            if (!grupos[chaveGrupo]) {
+                grupos[chaveGrupo] = { soma: 0, quantidade: 0 };
+            }
+            grupos[chaveGrupo].soma += valor;
+            grupos[chaveGrupo].quantidade += 1;
             if (valor > 0) {
                 bases += 1;
             }
         }
     }
+    Object.keys(grupos).forEach(function(chaveGrupo) {
+        var itemGrupo = grupos[chaveGrupo];
+        if (!itemGrupo || itemGrupo.quantidade <= 0) {
+            return;
+        }
+        total += Math.round(itemGrupo.soma / itemGrupo.quantidade);
+    });
     ESTADO.resumo.bases = bases;
     ESTADO.resumo.total = total;
     aplicarResumoNaTela();
@@ -433,7 +541,7 @@ function reiniciarConsulta() {
     aplicarResumoNaTela();
     renderizarTabela();
     atualizarIndicadorCache('Consulta online em andamento', 'cache-online');
-    atualizarStatus('Consultando ' + ESTADO.totalItens + ' item(ns) do servidores.json com até 15 consultas simultâneas...');
+    atualizarStatus('Consultando ' + ESTADO.totalItens + ' item(ns) da tabela servidores com até 15 consultas simultâneas...');
     var botao = document.getElementById('botaoConsultar');
     if (botao) {
         botao.disabled = true;
@@ -564,11 +672,11 @@ window.addEventListener('DOMContentLoaded', function() {
         <div class="title-row">
             <div class="title-block">
                 <h1>Consulta de Notas Fiscais</h1>
-                <p>Painel rápido lendo o servidores.json e consultando as bases do servidores.json com notas em situação irregular.</p>
+                <p>Painel rápido lendo a tabela servidores e consultando as bases com notas em situação irregular.</p>
             </div>
             <div class="tag-row">
                 <span class="chip"><span>Início</span> <strong><?= htmlspecialchars(date('d/m/Y H:i:s'), ENT_QUOTES, 'UTF-8') ?></strong></span>
-                <span class="chip"><span>Origem</span> <strong>servidores.json</strong></span>
+                <span class="chip"><span>Origem</span> <strong>tabela servidores</strong></span>
                 <span class="chip live"><span>Dias</span> <strong><?= (int) $diasConsulta ?></strong></span>
             </div>
         </div>
@@ -579,7 +687,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     <input type="hidden" name="consultar" value="1">
                     <div class="field">
                         <label for="origem">Origem</label>
-                        <input type="text" id="origem" value="servidores.json" readonly>
+                        <input type="text" id="origem" value="tabela servidores" readonly>
                     </div>
                     <div class="field">
                         <label for="filtro_cliente">Cliente</label>
@@ -666,7 +774,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     <tbody id="corpoTabela"></tbody>
                 </table>
             </div>
-            <div class="empty-state" id="mensagemVazia"><?= htmlspecialchars($executarConsulta ? 'Nenhum resultado encontrado até o momento.' : 'Clique em Consultar para iniciar a leitura do servidores.json.', ENT_QUOTES, 'UTF-8') ?></div>
+            <div class="empty-state" id="mensagemVazia"><?= htmlspecialchars($executarConsulta ? 'Nenhum resultado encontrado até o momento.' : 'Clique em Consultar para iniciar a leitura da tabela servidores.', ENT_QUOTES, 'UTF-8') ?></div>
         </section>
     </main>
 </div>

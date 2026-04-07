@@ -12,7 +12,6 @@ header('Pragma: no-cache');
 header('Expires: 0');
 
 $arquivoConfiguracao = __DIR__ . '/config.json';
-$arquivoServidores = __DIR__ . '/servidores.json';
 $arquivoLogPhp = __DIR__ . '/consultar_notas_servidores_worker.log';
 ini_set('log_errors', '1');
 ini_set('error_log', $arquivoLogPhp);
@@ -41,6 +40,99 @@ function lerJsonArquivo(string $arquivo, string $rotulo): array
     }
 
     return $dados;
+}
+
+const SERVIDORES_TABELA_HOST = '10.8.0.6';
+const SERVIDORES_TABELA_PORTA = 3306;
+const SERVIDORES_TABELA_USUARIO = 'mysoftweb';
+const SERVIDORES_TABELA_SENHA = 'g3108f88';
+const SERVIDORES_TABELA_DATABASE = 'mysoft';
+
+function criarConexaoTabelaServidores()
+{
+    $conexao = mysqli_init();
+    if ($conexao === false) {
+        return false;
+    }
+
+    if (defined('MYSQLI_OPT_CONNECT_TIMEOUT')) {
+        @mysqli_options($conexao, MYSQLI_OPT_CONNECT_TIMEOUT, 120);
+    }
+
+    if (defined('MYSQLI_OPT_READ_TIMEOUT')) {
+        @mysqli_options($conexao, MYSQLI_OPT_READ_TIMEOUT, 600);
+    }
+
+    $ok = @mysqli_real_connect(
+        $conexao,
+        SERVIDORES_TABELA_HOST,
+        SERVIDORES_TABELA_USUARIO,
+        SERVIDORES_TABELA_SENHA,
+        SERVIDORES_TABELA_DATABASE,
+        SERVIDORES_TABELA_PORTA
+    );
+
+    if ($ok !== true) {
+        @mysqli_close($conexao);
+        return false;
+    }
+
+    @$conexao->set_charset('utf8mb4');
+    @$conexao->query('SET SESSION wait_timeout = 28800');
+    @$conexao->query('SET SESSION net_read_timeout = 600');
+    @$conexao->query('SET SESSION net_write_timeout = 600');
+
+    return $conexao;
+}
+
+function carregarServidoresTabela(): array
+{
+    $conexao = criarConexaoTabelaServidores();
+    if (!$conexao instanceof mysqli) {
+        $erro = mysqli_connect_error();
+        if (!is_string($erro) || $erro === '') {
+            $erro = 'Não foi possível conectar na tabela servidores.';
+        }
+        responderJson(['ok' => false, 'erro' => $erro], 500);
+    }
+
+    $sql = "
+        SELECT
+            nome,
+            grupo,
+            endereco,
+            porta,
+            `database`
+        FROM `servidores`
+        ORDER BY grupo, nome, `database`, endereco, porta
+    ";
+
+    $resultado = $conexao->query($sql);
+    if ($resultado === false) {
+        $erro = $conexao->error;
+        $conexao->close();
+        responderJson(['ok' => false, 'erro' => 'Erro ao consultar tabela servidores: ' . $erro], 500);
+    }
+
+    $servidores = [];
+    while ($linha = $resultado->fetch_assoc()) {
+        if (!is_array($linha)) {
+            continue;
+        }
+
+        $servidores[] = [
+            'nome' => isset($linha['nome']) ? trim((string) $linha['nome']) : '',
+            'grupo' => isset($linha['grupo']) ? trim((string) $linha['grupo']) : '',
+            'endereco' => isset($linha['endereco']) ? trim((string) $linha['endereco']) : '',
+            'porta' => isset($linha['porta']) ? (int) $linha['porta'] : 3306,
+            'database' => isset($linha['database']) ? trim((string) $linha['database']) : ''
+        ];
+    }
+
+    $resultado->free();
+    $conexao->close();
+
+    return $servidores;
 }
 
 function criarConexaoMysql(string $endereco, string $usuario, string $senha, int $porta)
@@ -193,14 +285,14 @@ function obterCampoOrigemNotasFiscais(mysqli $conexao, string $nomeBanco): strin
 mysqli_report(MYSQLI_REPORT_OFF);
 
 $configuracao = lerJsonArquivo($arquivoConfiguracao, 'config.json');
-$servidoresJson = lerJsonArquivo($arquivoServidores, 'servidores.json');
+$servidoresTabela = carregarServidoresTabela();
 
 if (empty($configuracao['mysql_usuario']) || !array_key_exists('mysql_senha', $configuracao)) {
     responderJson(['ok' => false, 'erro' => 'Configuração incompleta no config.json.'], 500);
 }
 
-if (empty($servidoresJson['servidores']) || !is_array($servidoresJson['servidores'])) {
-    responderJson(['ok' => false, 'erro' => 'Nenhum servidor encontrado no servidores.json.'], 500);
+if (count($servidoresTabela) === 0) {
+    responderJson(['ok' => false, 'erro' => 'Nenhum servidor encontrado na tabela servidores do mysoft.'], 500);
 }
 
 $indiceItem = isset($_GET['i']) ? (int) $_GET['i'] : -1;
@@ -209,17 +301,17 @@ if ($diasConsulta <= 0) {
     $diasConsulta = 7;
 }
 
-if (!isset($servidoresJson['servidores'][$indiceItem]) || !is_array($servidoresJson['servidores'][$indiceItem])) {
+if (!isset($servidoresTabela[$indiceItem]) || !is_array($servidoresTabela[$indiceItem])) {
     responderJson([
         'ok' => false,
-        'erro' => 'Item inválido no servidores.json.',
+        'erro' => 'Item inválido na tabela servidores.',
         'contabilizar_erro' => 1,
         'contabilizar_ok' => 0,
         'erro_conexao' => false,
     ], 400);
 }
 
-$item = $servidoresJson['servidores'][$indiceItem];
+$item = $servidoresTabela[$indiceItem];
 $nome = isset($item['nome']) ? trim((string) $item['nome']) : '';
 $grupo = isset($item['grupo']) ? trim((string) $item['grupo']) : '';
 $endereco = isset($item['endereco']) ? trim((string) $item['endereco']) : '';
@@ -234,7 +326,7 @@ $indiceServidorConfig = localizarIndiceServidorConfig(
 if ($nome === '' || $endereco === '' || $database === '') {
     responderJson([
         'ok' => false,
-        'erro' => 'Registro incompleto no servidores.json.',
+        'erro' => 'Registro incompleto na tabela servidores.',
         'nome' => $nome,
         'grupo' => $grupo,
         'endereco' => $endereco,
@@ -248,7 +340,7 @@ if ($nome === '' || $endereco === '' || $database === '') {
 }
 
 $inicio = microtime(true);
-error_log('WORKER consultar_notas_servidores nome=' . $nome . ' grupo=' . $grupo . ' host=' . $endereco . ' porta=' . $porta . ' database=' . $database . ' dias=' . $diasConsulta);
+error_log('WORKER consultar_notas_servidores nome=' . $nome . ' grupo=' . $grupo . ' host=' . $endereco . ' porta=' . $porta . ' database=' . $database . ' dias=' . $diasConsulta . ' origem=tabela_servidores');
 
 $conexao = criarConexaoMysql($endereco, (string) $configuracao['mysql_usuario'], (string) $configuracao['mysql_senha'], $porta);
 if ($conexao === false) {

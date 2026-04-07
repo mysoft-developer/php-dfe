@@ -24,7 +24,6 @@ header('Cache-Control: private, max-age=600');
 header('X-Accel-Buffering: no');
 
 $arquivoConfiguracao = __DIR__ . '/config.json';
-$arquivoServidores = __DIR__ . '/servidores.json';
 $arquivoLogPhp = __DIR__ . '/consultar_notas_servidores.log';
 ini_set('log_errors', '1');
 ini_set('error_log', $arquivoLogPhp);
@@ -72,6 +71,99 @@ function lerJsonArquivo(string $arquivo, string $rotulo): array
     return $dados;
 }
 
+const SERVIDORES_TABELA_HOST = '10.8.0.6';
+const SERVIDORES_TABELA_PORTA = 3306;
+const SERVIDORES_TABELA_USUARIO = 'mysoftweb';
+const SERVIDORES_TABELA_SENHA = 'g3108f88';
+const SERVIDORES_TABELA_DATABASE = 'mysoft';
+
+function criarConexaoTabelaServidores()
+{
+    $conexao = mysqli_init();
+    if ($conexao === false) {
+        return false;
+    }
+
+    if (defined('MYSQLI_OPT_CONNECT_TIMEOUT')) {
+        @mysqli_options($conexao, MYSQLI_OPT_CONNECT_TIMEOUT, 120);
+    }
+
+    if (defined('MYSQLI_OPT_READ_TIMEOUT')) {
+        @mysqli_options($conexao, MYSQLI_OPT_READ_TIMEOUT, 600);
+    }
+
+    $ok = @mysqli_real_connect(
+        $conexao,
+        SERVIDORES_TABELA_HOST,
+        SERVIDORES_TABELA_USUARIO,
+        SERVIDORES_TABELA_SENHA,
+        SERVIDORES_TABELA_DATABASE,
+        SERVIDORES_TABELA_PORTA
+    );
+
+    if ($ok !== true) {
+        @mysqli_close($conexao);
+        return false;
+    }
+
+    @$conexao->set_charset('utf8mb4');
+    @$conexao->query('SET SESSION wait_timeout = 28800');
+    @$conexao->query('SET SESSION net_read_timeout = 600');
+    @$conexao->query('SET SESSION net_write_timeout = 600');
+
+    return $conexao;
+}
+
+function carregarServidoresTabela(): array
+{
+    $conexao = criarConexaoTabelaServidores();
+    if (!$conexao instanceof mysqli) {
+        $erro = mysqli_connect_error();
+        if (!is_string($erro) || $erro === '') {
+            $erro = 'Não foi possível conectar na tabela servidores.';
+        }
+        sairComErro($erro);
+    }
+
+    $sql = "
+        SELECT
+            nome,
+            grupo,
+            endereco,
+            porta,
+            `database`
+        FROM `servidores`
+        ORDER BY grupo, nome, `database`, endereco, porta
+    ";
+
+    $resultado = $conexao->query($sql);
+    if ($resultado === false) {
+        $erro = $conexao->error;
+        $conexao->close();
+        sairComErro('Erro ao consultar tabela servidores: ' . $erro);
+    }
+
+    $servidores = [];
+    while ($linha = $resultado->fetch_assoc()) {
+        if (!is_array($linha)) {
+            continue;
+        }
+
+        $servidores[] = [
+            'nome' => isset($linha['nome']) ? trim((string) $linha['nome']) : '',
+            'grupo' => isset($linha['grupo']) ? trim((string) $linha['grupo']) : '',
+            'endereco' => isset($linha['endereco']) ? trim((string) $linha['endereco']) : '',
+            'porta' => isset($linha['porta']) ? (int) $linha['porta'] : 3306,
+            'database' => isset($linha['database']) ? trim((string) $linha['database']) : ''
+        ];
+    }
+
+    $resultado->free();
+    $conexao->close();
+
+    return $servidores;
+}
+
 function localizarIndiceServidorConfig(array $servidoresConfig, string $endereco, int $porta): int
 {
     foreach ($servidoresConfig as $indice => $servidor) {
@@ -89,21 +181,52 @@ function localizarIndiceServidorConfig(array $servidoresConfig, string $endereco
     return -1;
 }
 
+function normalizarTextoFiltro(string $texto): string
+{
+    $texto = trim($texto);
+    if ($texto === '') {
+        return '';
+    }
+
+    return function_exists('mb_strtolower')
+        ? mb_strtolower($texto, 'UTF-8')
+        : strtolower($texto);
+}
+
+function obterNomeSimplificadoFiltro(string $nome): string
+{
+    $nome = trim($nome);
+    if ($nome === '') {
+        return '';
+    }
+
+    $posicao = strpos($nome, '_');
+    if ($posicao !== false) {
+        $nome = substr($nome, $posicao + 1);
+    }
+
+    return $nome;
+}
+
 $configuracao = lerJsonArquivo($arquivoConfiguracao, 'config.json');
-$servidoresJson = lerJsonArquivo($arquivoServidores, 'servidores.json');
+$servidoresTabela = carregarServidoresTabela();
 
 if (empty($configuracao['mysql_usuario']) || !array_key_exists('mysql_senha', $configuracao)) {
     sairComErro('Configuração incompleta. Verifique mysql_usuario e mysql_senha.');
 }
 
-if (empty($servidoresJson['servidores']) || !is_array($servidoresJson['servidores'])) {
-    sairComErro('Nenhum servidor encontrado no servidores.json.');
+if (count($servidoresTabela) === 0) {
+    sairComErro('Nenhum servidor encontrado na tabela servidores do mysoft.');
 }
 
 $diasConsulta = isset($_GET['dias']) ? (int) $_GET['dias'] : 7;
 if ($diasConsulta <= 0) {
     $diasConsulta = 7;
 }
+$filtroCliente = isset($_GET['filtro_cliente']) ? trim((string) $_GET['filtro_cliente']) : '';
+$filtroTrecho = isset($_GET['filtro_trecho']) ? trim((string) $_GET['filtro_trecho']) : '';
+$filtroClienteNormalizado = normalizarTextoFiltro($filtroCliente);
+$filtroTrechoNormalizado = normalizarTextoFiltro($filtroTrecho);
 $executarConsulta = isset($_GET['consultar']) && $_GET['consultar'] === '1';
 
 $servidoresConfig = isset($configuracao['servidores']) && is_array($configuracao['servidores'])
@@ -111,7 +234,7 @@ $servidoresConfig = isset($configuracao['servidores']) && is_array($configuracao
     : [];
 
 $servidoresFront = [];
-foreach ($servidoresJson['servidores'] as $indiceItem => $item) {
+foreach ($servidoresTabela as $indiceItem => $item) {
     if (!is_array($item)) {
         continue;
     }
@@ -126,6 +249,18 @@ foreach ($servidoresJson['servidores'] as $indiceItem => $item) {
         continue;
     }
 
+    $nomeSimplificado = obterNomeSimplificadoFiltro($nome);
+    $nomeSimplificadoNormalizado = normalizarTextoFiltro($nomeSimplificado);
+    $nomeNormalizado = normalizarTextoFiltro($nome);
+
+    if ($filtroClienteNormalizado !== '' && $nomeSimplificadoNormalizado !== $filtroClienteNormalizado) {
+        continue;
+    }
+
+    if ($filtroTrechoNormalizado !== '' && strpos($nomeNormalizado, $filtroTrechoNormalizado) === false) {
+        continue;
+    }
+
     $servidoresFront[] = [
         'indiceItem' => (string) $indiceItem,
         'indiceServidor' => (string) localizarIndiceServidorConfig($servidoresConfig, $endereco, $porta),
@@ -137,11 +272,28 @@ foreach ($servidoresJson['servidores'] as $indiceItem => $item) {
     ];
 }
 
-$textoStatusInicial = $executarConsulta
-    ? 'Preparando consulta concorrente pelo servidores.json com até 15 consultas simultâneas...'
-    : 'Clique em Consultar para ler o servidores.json e verificar as quantidades.';
+$partesFiltroStatus = [];
+if ($filtroCliente !== '') {
+    $partesFiltroStatus[] = 'cliente: ' . $filtroCliente;
+}
+if ($filtroTrecho !== '') {
+    $partesFiltroStatus[] = 'trecho: ' . $filtroTrecho;
+}
+$descricaoFiltroStatus = count($partesFiltroStatus) > 0
+    ? ' com filtros ' . implode(' | ', $partesFiltroStatus)
+    : '';
 
-error_log('CONSULTAR_NOTAS_SERVIDORES pagina iniciada. executar=' . ($executarConsulta ? '1' : '0') . ' dias=' . $diasConsulta);
+$textoStatusInicial = $executarConsulta
+    ? 'Preparando consulta concorrente pela tabela servidores com até 15 consultas simultâneas' . $descricaoFiltroStatus . '...'
+    : 'Clique em Consultar para ler a tabela servidores e verificar as quantidades.';
+
+error_log(
+    'CONSULTAR_NOTAS_SERVIDORES pagina iniciada. executar=' . ($executarConsulta ? '1' : '0') .
+    ' dias=' . $diasConsulta .
+    ' filtro_cliente=' . $filtroCliente .
+    ' filtro_trecho=' . $filtroTrecho .
+    ' total_filtrado=' . count($servidoresFront)
+);
 ?>
 <!doctype html>
 <html lang="pt-BR">
@@ -150,6 +302,21 @@ error_log('CONSULTAR_NOTAS_SERVIDORES pagina iniciada. executar=' . ($executarCo
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Consulta de Notas por Servidores</title>
 <link rel="stylesheet" href="consultar_notas_servidores.css">
+<style>
+.panel-form form {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 120px auto auto;
+}
+.botao-secundario {
+    background: linear-gradient(180deg, rgba(240, 246, 255, 0.98), rgba(226, 236, 249, 0.98));
+    color: #1f3e63;
+    border-color: rgba(86, 111, 145, 0.28);
+}
+@media (max-width: 760px) {
+    .panel-form form {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
 <script>
 var SERVIDORES_LISTA = <?= json_encode($servidoresFront, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 var EXECUTAR_CONSULTA_INICIAL = <?= $executarConsulta ? 'true' : 'false' ?>;
@@ -183,6 +350,17 @@ function atualizarStatus(texto) {
     var el = document.getElementById('statusAtual');
     if (el) {
         el.textContent = texto;
+    }
+}
+
+function limparFiltros() {
+    var campoCliente = document.getElementById('filtro_cliente');
+    var campoTrecho = document.getElementById('filtro_trecho');
+    if (campoCliente) {
+        campoCliente.value = '';
+    }
+    if (campoTrecho) {
+        campoTrecho.value = '';
     }
 }
 
@@ -255,6 +433,7 @@ function montarLinkQuantidade(linha) {
         '&nome=' + encodeURIComponent(linha.nome || '') +
         '&db=' + encodeURIComponent(linha.database || '') +
         '&dias=' + encodeURIComponent(DIAS_CONSULTA_ATUAL) +
+        '&grupo=' + encodeURIComponent(linha.grupo || '') +
         '&limpar_filtro=1';
     return '<a class="link-quantidade" href="' + escaparHtml(url) + '" target="_blank" rel="noopener noreferrer" onclick="window.open(this.href, \"_blank\", \"noopener,noreferrer\"); return false;">' + escaparHtml(linha.quantidade) + '</a>';
 }
@@ -343,10 +522,11 @@ function reiniciarConsulta() {
     ESTADO.resumo = { bases: 0, ok: 0, erro: 0, total: 0, fim: '-' };
     ESTADO.consultando = true;
     ESTADO.processados = 0;
+    ESTADO.totalItens = SERVIDORES_LISTA.length;
     aplicarResumoNaTela();
     renderizarTabela();
     atualizarIndicadorCache('Consulta online em andamento', 'cache-online');
-    atualizarStatus('Consultando ' + ESTADO.totalItens + ' item(ns) do servidores.json com até 15 consultas simultâneas...');
+    atualizarStatus('Consultando ' + ESTADO.totalItens + ' item(ns) da tabela servidores com até 15 consultas simultâneas...');
     var botao = document.getElementById('botaoConsultar');
     if (botao) {
         botao.disabled = true;
@@ -477,11 +657,11 @@ window.addEventListener('DOMContentLoaded', function() {
         <div class="title-row">
             <div class="title-block">
                 <h1>Consulta de Notas Fiscais</h1>
-                <p>Painel rápido lendo o servidores.json e consultando as bases do servidores.json com notas em situação irregular.</p>
+                <p>Painel rápido lendo a tabela servidores e consultando as bases com notas em situação irregular.</p>
             </div>
             <div class="tag-row">
                 <span class="chip"><span>Início</span> <strong><?= htmlspecialchars(date('d/m/Y H:i:s'), ENT_QUOTES, 'UTF-8') ?></strong></span>
-                <span class="chip"><span>Origem</span> <strong>servidores.json</strong></span>
+                <span class="chip"><span>Origem</span> <strong>tabela servidores</strong></span>
                 <span class="chip live"><span>Dias</span> <strong><?= (int) $diasConsulta ?></strong></span>
             </div>
         </div>
@@ -492,7 +672,15 @@ window.addEventListener('DOMContentLoaded', function() {
                     <input type="hidden" name="consultar" value="1">
                     <div class="field">
                         <label for="origem">Origem</label>
-                        <input type="text" id="origem" value="servidores.json" readonly>
+                        <input type="text" id="origem" value="tabela servidores" readonly>
+                    </div>
+                    <div class="field">
+                        <label for="filtro_cliente">Cliente</label>
+                        <input type="text" id="filtro_cliente" name="filtro_cliente" value="<?= htmlspecialchars($filtroCliente, ENT_QUOTES, 'UTF-8') ?>" placeholder="Ex.: pelanda22">
+                    </div>
+                    <div class="field">
+                        <label for="filtro_trecho">Trecho</label>
+                        <input type="text" id="filtro_trecho" name="filtro_trecho" value="<?= htmlspecialchars($filtroTrecho, ENT_QUOTES, 'UTF-8') ?>" placeholder="Like no nome original">
                     </div>
                     <div class="field">
                         <label for="dias">Dias</label>
@@ -500,6 +688,9 @@ window.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div>
                         <button class="botao" id="botaoConsultar" type="submit">Consultar</button>
+                    </div>
+                    <div>
+                        <button class="botao botao-secundario" type="button" onclick="limparFiltros()">Limpar</button>
                     </div>
                 </form>
             </section>
@@ -568,7 +759,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     <tbody id="corpoTabela"></tbody>
                 </table>
             </div>
-            <div class="empty-state" id="mensagemVazia"><?= htmlspecialchars($executarConsulta ? 'Nenhum resultado encontrado até o momento.' : 'Clique em Consultar para iniciar a leitura do servidores.json.', ENT_QUOTES, 'UTF-8') ?></div>
+            <div class="empty-state" id="mensagemVazia"><?= htmlspecialchars($executarConsulta ? 'Nenhum resultado encontrado até o momento.' : 'Clique em Consultar para iniciar a leitura da tabela servidores.', ENT_QUOTES, 'UTF-8') ?></div>
         </section>
     </main>
 </div>

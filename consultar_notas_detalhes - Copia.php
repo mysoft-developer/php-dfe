@@ -527,11 +527,11 @@ function criarConexaoMysql(string $endereco, string $usuario, string $senha, int
     }
 
     if (defined('MYSQLI_OPT_CONNECT_TIMEOUT')) {
-        @mysqli_options($conexao, MYSQLI_OPT_CONNECT_TIMEOUT, 120);
+        @mysqli_options($conexao, MYSQLI_OPT_CONNECT_TIMEOUT, 240);
     }
 
     if (defined('MYSQLI_OPT_READ_TIMEOUT')) {
-        @mysqli_options($conexao, MYSQLI_OPT_READ_TIMEOUT, 600);
+        @mysqli_options($conexao, MYSQLI_OPT_READ_TIMEOUT, 1200);
     }
 
     $ok = @mysqli_real_connect($conexao, $endereco, $usuario, $senha, '', $porta);
@@ -542,9 +542,9 @@ function criarConexaoMysql(string $endereco, string $usuario, string $senha, int
 
     @$conexao->set_charset('utf8mb4');
     @$conexao->query('SET SESSION wait_timeout = 28800');
-    @$conexao->query('SET SESSION net_read_timeout = 600');
-    @$conexao->query('SET SESSION net_write_timeout = 600');
-    @$conexao->query('SET SESSION innodb_lock_wait_timeout = 600');
+    @$conexao->query('SET SESSION net_read_timeout = 1200');
+    @$conexao->query('SET SESSION net_write_timeout = 1200');
+    @$conexao->query('SET SESSION innodb_lock_wait_timeout = 1200');
 
     return $conexao;
 }
@@ -813,8 +813,10 @@ $nomeBanco = isset($parametrosEntrada['db']) ? trim((string) $parametrosEntrada[
 $enderecoDireto = isset($parametrosEntrada['host']) ? trim((string) $parametrosEntrada['host']) : '';
 $portaDireta = isset($parametrosEntrada['porta']) ? (int) $parametrosEntrada['porta'] : 3306;
 $nomeDireto = isset($parametrosEntrada['nome']) ? trim((string) $parametrosEntrada['nome']) : '';
+$grupoContexto = isset($parametrosEntrada['grupo']) ? trim((string) $parametrosEntrada['grupo']) : '';
 $limparFiltroAoAbrir = isset($parametrosEntrada['limpar_filtro']) && (string) $parametrosEntrada['limpar_filtro'] === '1';
 $diasConsulta = isset($parametrosEntrada['dias']) ? (int) $parametrosEntrada['dias'] : 7;
+$grupoDetalhes = isset($parametrosEntrada['grupo']) ? trim((string) $parametrosEntrada['grupo']) : '';
 $modoDireto = $enderecoDireto !== '';
 
 if ($diasConsulta <= 0) {
@@ -841,7 +843,8 @@ if ($modoDireto) {
         . '&porta=' . rawurlencode((string) $porta)
         . '&nome=' . rawurlencode($identificacao)
         . '&db=' . rawurlencode($nomeBanco)
-        . '&dias=' . (int) $diasConsulta;
+        . '&dias=' . (int) $diasConsulta
+        . '&grupo=' . rawurlencode($grupoContexto);
 } else {
     if (
         empty($configuracao['servidores']) ||
@@ -870,7 +873,8 @@ if ($modoDireto) {
     $identificadorServidorTela = (string) $indiceServidor;
     $parametrosBaseDetalhes = 's=' . (int) $indiceServidor
         . '&db=' . rawurlencode($nomeBanco)
-        . '&dias=' . (int) $diasConsulta;
+        . '&dias=' . (int) $diasConsulta
+        . '&grupo=' . rawurlencode($grupoContexto);
 }
 
 $arquivoExecucoesAtivas = obterArquivoExecucoesAtivas($identificadorServidorTela, $nomeBanco);
@@ -940,7 +944,7 @@ $idtsProcessados = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $acao = isset($_POST['acao']) ? trim((string) $_POST['acao']) : '';
-    $acoesPermitidas = ['consultarX', 'validarX', 'acerto_w', 'acerto_v', 'enviarX', 'cancelarX', 'inutilizarX'];
+    $acoesPermitidas = ['consultarX', 'validarX', 'acerto_w', 'acerto_v', 'enviarX', 'cancelarX', 'inutilizarX', 'removercancelamento'];
     $statusEncerrados = ['100', '101', '102', '150'];
 
     $idtsSelecionados = isset($_POST['idts']) && is_array($_POST['idts']) ? $_POST['idts'] : [];
@@ -1288,6 +1292,16 @@ var ESTADO_DETALHES = {
     uiKey: <?= json_encode('ui::' . $_SERVER['PHP_SELF'] . '::' . $identificadorServidorTela . '::' . $nomeBanco . '::' . $diasConsulta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>
 };
 var URL_CARREGAR_DETALHES = 'consultar_notas_detalhes.php?ajax_carregar=1&<?= $parametrosBaseDetalhes ?>';
+var GRUPO_DETALHES = <?= json_encode($grupoDetalhes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+var GRUPO_CONTEXTO = <?= json_encode($grupoContexto, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+var DATA_ATUAL_CONSULTA_IDT = (function() {
+    var agora = new Date();
+    var ano = String(agora.getFullYear());
+    var mes = String(agora.getMonth() + 1).padStart(2, '0');
+    var dia = String(agora.getDate()).padStart(2, '0');
+    return ano + mes + dia;
+})();
+var GRUPO_PARA_CONSULTA_IDT = String(GRUPO_DETALHES || GRUPO_CONTEXTO || '').trim();
 function mostrarOverlayConsultaDados(texto, subtexto) {
     var overlay = document.getElementById('overlayConsultaDados');
     if (!overlay) { return; }
@@ -1305,6 +1319,40 @@ function ocultarOverlayConsultaDados() {
     var overlay = document.getElementById('overlayConsultaDados');
     if (!overlay) { return; }
     overlay.hidden = true;
+}
+
+function abrirOrigemEmNovaAba(url) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return false;
+}
+function abrirConsultaIdtComOverlay(url) {
+    url = String(url || '').trim();
+    if (url === '') {
+        return false;
+    }
+
+    var novaAba = window.open('', '_blank');
+    if (!novaAba) {
+        window.open(url, '_blank');
+        return false;
+    }
+
+    try {
+        novaAba.document.open();
+        novaAba.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Carregando consulta</title><style>html,body{height:100%;margin:0;}body{display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;background:#eef3f9;color:#1b2a3a;font-family:Inter,Segoe UI,Arial,Helvetica,sans-serif;} .loader-wrap{width:min(560px,100%);padding:28px 26px;border-radius:22px;border:1px solid rgba(47,125,225,0.24);background:linear-gradient(180deg,rgba(255,255,255,0.99),rgba(245,249,255,0.98));box-shadow:0 18px 42px rgba(71,95,128,0.14);text-align:center;} .loader-spinner{width:54px;height:54px;margin:0 auto 16px auto;border-radius:50%;border:4px solid rgba(47,125,225,0.18);border-top-color:rgba(47,125,225,0.92);animation:giro 0.9s linear infinite;} .loader-titulo{margin:0;font-size:15px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#2b4058;} .loader-texto{margin-top:10px;font-size:22px;font-weight:800;color:#2f9d57;} .loader-subtexto{margin-top:10px;color:#5f738c;font-size:13px;} @keyframes giro{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}</style></head><body><div class="loader-wrap"><div class="loader-spinner"></div><div class="loader-titulo">Carregando</div><div class="loader-texto">Abrindo consulta do IDT...</div><div class="loader-subtexto">Aguarde enquanto a nova aba prepara a consulta automática.</div></div></body></html>');
+        novaAba.document.close();
+    } catch (erro) {
+    }
+
+    window.setTimeout(function() {
+        try {
+            novaAba.location.replace(url);
+        } catch (erro) {
+            novaAba.location.href = url;
+        }
+    }, 20);
+
+    return false;
 }
 function carregarLinhasIniciaisOnline() {
     mostrarOverlayConsultaDados('Consultando dados das notas...', 'Aguarde enquanto as informações são carregadas.');
@@ -1397,6 +1445,18 @@ function escaparHtml(texto) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+}
+function montarLinkOrigem(item) {
+    var origemTexto = String((item && item.origem) || '');
+    if (origemTexto === '') {
+        return '';
+    }
+    if (GRUPO_CONTEXTO === '') {
+        return escaparHtml(origemTexto);
+    }
+    var url = 'consultar_emissores.php?grupo=' + encodeURIComponent(GRUPO_CONTEXTO) +
+        '&consultar=1';
+    return '<a class="text-link" href="' + escaparHtml(url) + '" target="_blank" rel="noopener noreferrer" onclick="window.open(this.href, \'_blank\', \'noopener,noreferrer\'); return false;">' + escaparHtml(origemTexto) + '</a>';
 }
 function obterPayloadResumoAtualizado() {
     return {
@@ -1599,6 +1659,42 @@ function atualizarMensagemVazia() {
     }
     mensagem.style.display = 'none';
 }
+
+function montarLinkOrigem(item) {
+    var origem = String(item && item.origem ? item.origem : '').trim();
+    if (origem === '') {
+        return '';
+    }
+    var url = 'consultar_emissores.php?grupo=' + encodeURIComponent(String(GRUPO_DETALHES || '')) +
+        '&origem=' + encodeURIComponent(origem);
+    return '<a class="text-link" href="' + escaparHtml(url) + '" target="_blank" rel="noopener noreferrer" onclick="return abrirOrigemEmNovaAba(this.href);">' + escaparHtml(origem) + '</a>';
+}
+
+function montarUrlConsultaIdt(idt) {
+    idt = String(idt || '').trim();
+    if (idt === '') {
+        return '';
+    }
+    var url = 'consultar_idt.php?idt=' + encodeURIComponent(idt) +
+        '&data_consulta=' + encodeURIComponent(DATA_ATUAL_CONSULTA_IDT);
+    if (GRUPO_PARA_CONSULTA_IDT !== '') {
+        url += '&grupo=' + encodeURIComponent(GRUPO_PARA_CONSULTA_IDT) + '&auto=1';
+    }
+    return url;
+}
+
+function montarLinkIdt(item) {
+    var idt = String(item && item.idt ? item.idt : '').trim();
+    if (idt === '') {
+        return '';
+    }
+    var url = montarUrlConsultaIdt(idt);
+    if (url === '') {
+        return escaparHtml(idt);
+    }
+    return '<a class="text-link" href="' + escaparHtml(url) + '" target="_blank" rel="noopener noreferrer" onclick="return abrirConsultaIdtComOverlay(this.href);">' + escaparHtml(idt) + '</a>';
+}
+
 function renderizarTabelaDetalhes() {
     var corpo = document.getElementById('corpoNotas');
     if (!corpo) { return; }
@@ -1617,14 +1713,14 @@ function renderizarTabelaDetalhes() {
         var checked = ESTADO_DETALHES.selecionados.has(idt) ? ' checked' : '';
         html += '<tr class="' + escaparHtml(montarClasseLinha(item)) + '">' +
             '<td class="col-selecao"><input class="check-nota" type="checkbox" data-idt="' + escaparHtml(idt) + '"' + checked + '></td>' +
-            '<td class="col-idt">' + escaparHtml(idt) + '</td>' +
+            '<td class="col-idt">' + montarLinkIdt(item) + '</td>' +
             '<td class="col-curta">' + escaparHtml(item.cancelado || '') + '</td>' +
             '<td class="col-emissao">' + escaparHtml(item.emissao || '') + '</td>' +
             '<td class="col-curta">' + escaparHtml(item.hora || '') + '</td>' +
             '<td class="col-curta">' + escaparHtml(item.nota || '') + '</td>' +
             '<td class="col-curta">' + escaparHtml(item.serie || '') + '</td>' +
             '<td class="col-curta">' + escaparHtml(item.modelo || '') + '</td>' +
-            '<td class="col-curta">' + escaparHtml(item.origem || '') + '</td>' +
+            '<td class="col-curta">' + montarLinkOrigem(item) + '</td>' +
             '<td class="col-curta">' + escaparHtml(item.chave || '') + '</td>' +
             '<td class="col-curta">' + escaparHtml(item.operacao || '') + '</td>' +
             '<td class="col-status">' + escaparHtml(item.status || '') + '</td>' +
@@ -1930,6 +2026,15 @@ function validarEnvio(acao) {
     salvarEstadoUiDebounce();
     return true;
 }
+function validarEnvioLink(evento, acao) {
+    if (evento && evento.preventDefault) {
+        evento.preventDefault();
+    }
+    if (!validarEnvio(acao)) {
+        return false;
+    }
+    return enviarFormularioAjax(evento || null);
+}
 function enviarFormularioAjax(evento) {
     if (evento && evento.preventDefault) {
         evento.preventDefault();
@@ -2090,6 +2195,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     <?php endif; ?>
                     <input type="hidden" name="db" value="<?= htmlspecialchars($nomeBanco, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="dias" value="<?= (int) $diasConsulta ?>">
+                    <input type="hidden" name="grupo" value="<?= htmlspecialchars($grupoContexto, ENT_QUOTES, 'UTF-8') ?>">
                     <div id="idtsSelecionadosContainer"></div>
                     <input type="hidden" name="ajax_action" value="1">
                     <input type="hidden" id="linhasSelecionadasJson" name="linhas_selecionadas_json" value="">
@@ -2130,6 +2236,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     <div class="mini-actions">
                         <span class="text-link" onclick="marcarTodos()">Marcar visíveis</span>
                         <span class="text-link" onclick="desmarcarTodos()">Desmarcar visíveis</span>
+                        <span style="margin-left:auto; min-width:calc((100% - 20px) / 3); text-align:center;"><span class="text-link" onclick="return validarEnvioLink(event, 'removercancelamento');">Remover Cancelamento</span></span>
                     </div>
                 </form>
             </section>

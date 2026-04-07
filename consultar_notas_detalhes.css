@@ -412,6 +412,7 @@ body {
 .table-wrap tbody tr:nth-child(even) td { background: #f9fbfe; }
 .table-wrap tbody tr:hover td { background: #eef5ff; }
 .table-wrap tbody tr.linha-modelo-65 td { background: #edf4ff; }
+.table-wrap tbody tr.linha-alerta-horario td { background: #fff8e6; }
 .table-wrap tbody tr.linha-problema td { background: #fff1f1 !important; }
 .col-selecao { width: 110px; text-align: center; }
 .col-idt { width: 120px; white-space: nowrap; }
