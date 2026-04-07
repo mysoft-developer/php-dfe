@@ -311,6 +311,34 @@ error_log(
     color: #1f3e63;
     border-color: rgba(86, 111, 145, 0.28);
 }
+.table-wrap table {
+    min-width: 1660px;
+}
+.table-wrap td.col-nome,
+.table-wrap th.col-nome {
+    width: 150px;
+}
+.table-wrap td.col-database,
+.table-wrap th.col-database {
+    width: 145px;
+}
+.table-wrap td.col-rede,
+.table-wrap th.col-rede {
+    width: 110px;
+}
+.table-wrap td.col-log,
+.table-wrap th.col-log,
+.table-wrap td.col-log-sis,
+.table-wrap th.col-log-sis {
+    width: 230px;
+}
+.texto-info-banco {
+    display: inline-block;
+    font-weight: 700;
+}
+.texto-info-banco.alerta {
+    color: #c00000;
+}
 @media (max-width: 760px) {
     .panel-form form {
         grid-template-columns: 1fr;
@@ -428,6 +456,11 @@ function ordenarLinhas() {
 }
 
 function montarLinkQuantidade(linha) {
+    var textoQuantidade = String(linha && linha.quantidade != null ? linha.quantidade : '');
+    if (!/^\d+$/.test(textoQuantidade)) {
+        return '<span class="texto-quantidade">' + escaparHtml(textoQuantidade) + '</span>';
+    }
+
     var url = 'consultar_notas_detalhes.php?host=' + encodeURIComponent(linha.endereco || '') +
         '&porta=' + encodeURIComponent(linha.porta || '') +
         '&nome=' + encodeURIComponent(linha.nome || '') +
@@ -435,15 +468,40 @@ function montarLinkQuantidade(linha) {
         '&dias=' + encodeURIComponent(DIAS_CONSULTA_ATUAL) +
         '&grupo=' + encodeURIComponent(linha.grupo || '') +
         '&limpar_filtro=1';
-    return '<a class="link-quantidade" href="' + escaparHtml(url) + '" target="_blank" rel="noopener noreferrer" onclick="window.open(this.href, \"_blank\", \"noopener,noreferrer\"); return false;">' + escaparHtml(linha.quantidade) + '</a>';
+    return '<a class="link-quantidade" href="' + escaparHtml(url) + '" target="_blank" rel="noopener noreferrer" onclick="window.open(this.href, \"_blank\", \"noopener,noreferrer\"); return false;">' + escaparHtml(textoQuantidade) + '</a>';
+}
+
+function classeTextoInfoBanco(texto, alerta) {
+    var classes = ['texto-info-banco'];
+    var valor = String(texto == null ? '' : texto);
+    if (alerta && valor !== '' && valor !== '...' && valor !== 'N/A' && valor !== 'ERRO') {
+        classes.push('alerta');
+    }
+    return classes.join(' ');
+}
+
+function htmlInfoBanco(texto, alerta) {
+    var textoSeguro = escaparHtml(texto).replace(/ /g, '&nbsp;');
+    return '<span class="' + escaparHtml(classeTextoInfoBanco(texto, alerta)) + '">' + textoSeguro + '</span>';
+}
+
+function htmlLinhaGrupo(nomeGrupo) {
+    var textoGrupo = String(nomeGrupo || '').trim();
+    if (textoGrupo === '') {
+        textoGrupo = 'SEM GRUPO';
+    }
+    return '<tr class="linha-grupo"><td colspan="8">Grupo: ' + escaparHtml(textoGrupo) + '</td></tr>';
 }
 
 function htmlLinha(linha) {
     return '<tr class="' + escaparHtml(linha.classeLinha || '') + '">' +
-        '<td>' + escaparHtml(linha.nome) + '</td>' +
+        '<td class="col-nome">' + escaparHtml(linha.nome) + '</td>' +
         '<td>' + escaparHtml(linha.endereco) + '</td>' +
         '<td>' + escaparHtml(linha.porta) + '</td>' +
-        '<td>' + escaparHtml(linha.database) + '</td>' +
+        '<td class="col-database">' + escaparHtml(linha.database) + '</td>' +
+        '<td class="col-rede">' + htmlInfoBanco(linha.rede || '...', false) + '</td>' +
+        '<td class="col-log">' + htmlInfoBanco(linha.log || '...', !!linha.alertaLog) + '</td>' +
+        '<td class="col-log-sis">' + htmlInfoBanco(linha.log_sis || '...', !!linha.alertaLogSis) + '</td>' +
         '<td class="col-quantidade">' + montarLinkQuantidade(linha) + '</td>' +
         '</tr>';
 }
@@ -453,7 +511,32 @@ function atualizarMensagemVazia() {
     if (!box) {
         return;
     }
-    box.style.display = ESTADO.linhas.length > 0 ? 'none' : 'flex';
+
+    var totalVisiveis = 0;
+    for (var i = 0; i < ESTADO.linhas.length; i++) {
+        if (!deveOcultarLinha(ESTADO.linhas[i])) {
+            totalVisiveis += 1;
+        }
+    }
+
+    box.style.display = totalVisiveis > 0 ? 'none' : 'flex';
+}
+
+function deveOcultarLinha(linha) {
+    if (!linha) {
+        return false;
+    }
+
+    var quantidade = String(linha.quantidade == null ? '' : linha.quantidade).trim();
+    if (quantidade !== '0') {
+        return false;
+    }
+
+    var logBytes = Number(linha.logBytes || 0);
+    var logSisBytes = Number(linha.logSisBytes || 0);
+    var limiteUmGb = 1024 * 1024 * 1024;
+
+    return logBytes < limiteUmGb && logSisBytes < limiteUmGb;
 }
 
 function renderizarTabela() {
@@ -468,10 +551,26 @@ function renderizarTabela() {
     }
     ordenarLinhas();
     var html = '';
+    var grupoAtual = null;
+    var totalVisiveis = 0;
     for (var i = 0; i < ESTADO.linhas.length; i++) {
-        html += htmlLinha(ESTADO.linhas[i]);
+        var linha = ESTADO.linhas[i];
+        if (deveOcultarLinha(linha)) {
+            continue;
+        }
+        totalVisiveis += 1;
+        var grupoLinha = String(linha && linha.grupo != null ? linha.grupo : '').trim();
+        if (grupoLinha !== grupoAtual) {
+            html += htmlLinhaGrupo(grupoLinha);
+            grupoAtual = grupoLinha;
+        }
+        html += htmlLinha(linha);
     }
     corpo.innerHTML = html;
+    var box = document.getElementById('mensagemVazia');
+    if (box) {
+        box.style.display = totalVisiveis > 0 ? 'none' : 'flex';
+    }
     atualizarMensagemVazia();
 }
 
@@ -525,6 +624,13 @@ function montarLinhasIniciais() {
             endereco: String(item.endereco || ''),
             porta: String(item.porta || ''),
             database: String(item.database || ''),
+            rede: '...',
+            log: '...',
+            log_sis: '...',
+            alertaLog: false,
+            alertaLogSis: false,
+            logBytes: 0,
+            logSisBytes: 0,
             quantidade: '...',
             indiceServidor: String(item.indiceServidor || ''),
             classeLinha: 'linha-verde'
@@ -574,19 +680,24 @@ function atualizarLinhaResultado(indiceItem, payload) {
 
     var linha = ESTADO.linhas[indice];
     linha.indiceServidor = String(payload && payload.indiceServidor != null ? payload.indiceServidor : linha.indiceServidor || '');
+    linha.rede = String(payload && payload.rede != null ? payload.rede : (linha.rede || 'N/A'));
+    linha.log = String(payload && payload.log != null ? payload.log : (linha.log || 'N/A'));
+    linha.log_sis = String(payload && payload.log_sis != null ? payload.log_sis : (linha.log_sis || 'N/A'));
+    linha.alertaLog = !!(payload && payload.alerta_log);
+    linha.alertaLogSis = !!(payload && payload.alerta_log_sis);
+    linha.logBytes = Number(payload && payload.log_bytes != null ? payload.log_bytes : (linha.logBytes || 0));
+    linha.logSisBytes = Number(payload && payload.log_sis_bytes != null ? payload.log_sis_bytes : (linha.logSisBytes || 0));
+
     if (payload && payload.ok === true) {
         var quantidadeNumero = Number(payload.quantidade || 0);
-        if (quantidadeNumero <= 0) {
-            ESTADO.linhas.splice(indice, 1);
-            return;
-        }
         linha.quantidade = String(payload.quantidade != null ? payload.quantidade : '0');
         linha.classeLinha = String(payload.classeLinha || ((quantidadeNumero > 100) ? 'linha-vermelha' : 'linha-verde'));
     } else if (payload && payload.erro_conexao) {
         linha.quantidade = 'não conecta';
         linha.classeLinha = 'linha-vermelha';
     } else {
-        ESTADO.linhas.splice(indice, 1);
+        linha.quantidade = 'erro';
+        linha.classeLinha = 'linha-vermelha';
     }
 }
 
@@ -756,25 +867,28 @@ window.addEventListener('DOMContentLoaded', function() {
         <section class="surface">
             <div class="surface-head">
                 <div>
-                    <div class="surface-title">Bases com inconsistências</div>
-                    <div class="surface-subtitle">Ordenado por grupo e nome. Clique na quantidade para abrir os detalhes em uma nova aba.</div>
+                    <div class="surface-title">Bases consultadas</div>
+                    <div class="surface-subtitle">Agrupado por grupo e ordenado por nome. A tabela mantém quantidade zero e erros de conexão, mas oculta linhas com quantidade 0 quando log e log_sis estiverem abaixo de 1 GB. Clique na quantidade para abrir os detalhes em uma nova aba.</div>
                 </div>
             </div>
             <div class="table-wrap">
                 <table>
                     <thead>
                         <tr>
-                            <th>Nome</th>
+                            <th class="col-nome">Nome</th>
                             <th>IP</th>
                             <th>Porta</th>
-                            <th>Database</th>
-                            <th>Quantidade</th>
+                            <th class="col-database">Database</th>
+                            <th class="col-rede">Rede</th>
+                            <th class="col-log">log</th>
+                            <th class="col-log-sis">log_sis</th>
+                            <th class="col-quantidade">Quantidade</th>
                         </tr>
                     </thead>
                     <tbody id="corpoTabela"></tbody>
                 </table>
             </div>
-            <div class="empty-state" id="mensagemVazia"><?= htmlspecialchars($executarConsulta ? 'Nenhum resultado encontrado até o momento.' : 'Clique em Consultar para iniciar a leitura da tabela servidores.', ENT_QUOTES, 'UTF-8') ?></div>
+            <div class="empty-state" id="mensagemVazia"><?= htmlspecialchars($executarConsulta ? 'Nenhum servidor encontrado com os filtros atuais.' : 'Clique em Consultar para iniciar a leitura da tabela servidores.', ENT_QUOTES, 'UTF-8') ?></div>
         </section>
     </main>
 </div>

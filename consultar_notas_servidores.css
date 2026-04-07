@@ -329,29 +329,56 @@ body {
 }
 .table-wrap table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
 }
 .table-wrap th,
 .table-wrap td {
     padding: 14px 16px;
-    border-bottom: 1px solid rgba(128, 148, 180, 0.12);
+    border-bottom: 1px solid rgba(128, 148, 180, 0.10);
     text-align: left;
+    vertical-align: middle;
 }
 .table-wrap thead th {
     position: sticky;
     top: 0;
     z-index: 2;
-    background: rgba(234, 242, 252, 0.98);
+    background: linear-gradient(180deg, rgba(229, 238, 249, 0.99), rgba(217, 229, 243, 0.98));
     color: #1f3e63;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-size: 11px;
+    box-shadow: inset 0 -1px 0 rgba(128, 148, 180, 0.16);
 }
-.table-wrap tbody tr:nth-child(even) td { background: rgba(47, 125, 225, 0.02); }
-.table-wrap tbody tr:hover td { background: rgba(47, 125, 225, 0.08); }
-.table-wrap tbody tr.linha-verde td { background: rgba(226, 246, 232, 0.96); }
-.table-wrap tbody tr.linha-vermelha td { background: rgba(255, 234, 234, 0.96); }
-.table-wrap td.col-quantidade { width: 170px; }
+.table-wrap tbody tr:not(.linha-grupo):nth-child(even) td { background: rgba(47, 125, 225, 0.018); }
+.table-wrap tbody tr:not(.linha-grupo):hover td { background: rgba(47, 125, 225, 0.06); }
+.table-wrap tbody tr.linha-verde td { background: rgba(232, 245, 237, 0.98); }
+.table-wrap tbody tr.linha-vermelha td { background: rgba(255, 239, 239, 0.98); }
+.table-wrap tbody tr.linha-grupo td {
+    padding: 12px 16px;
+    background: linear-gradient(180deg, rgba(229, 236, 246, 0.98), rgba(220, 230, 243, 0.96)) !important;
+    color: #17324d;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+    white-space: nowrap;
+    border-top: 1px solid rgba(128, 148, 180, 0.20);
+    border-bottom: 1px solid rgba(128, 148, 180, 0.16);
+}
+.table-wrap tbody tr.linha-grupo td::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 10px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(47, 125, 225, 0.96), rgba(36, 98, 184, 0.96));
+    box-shadow: 0 0 0 4px rgba(47, 125, 225, 0.10);
+    vertical-align: middle;
+}
+.table-wrap td.col-quantidade,
+.table-wrap th.col-quantidade { width: 170px; min-width: 170px; }
 .table-wrap td .link-quantidade,
 .table-wrap td .texto-quantidade {
     display: inline-flex;
@@ -393,4 +420,65 @@ body {
     .telemetry { grid-template-columns: 1fr; }
     .content-shell { padding-top: 12px; }
     .table-wrap { overflow: auto; }
+}
+
+.table-wrap th.col-nome,
+.table-wrap td.col-nome {
+    width: 150px;
+    min-width: 150px;
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.table-wrap th.col-database,
+.table-wrap td.col-database {
+    width: 145px;
+    min-width: 145px;
+    max-width: 145px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.table-wrap th.col-rede,
+.table-wrap td.col-rede {
+    width: 110px;
+    min-width: 110px;
+    white-space: nowrap;
+}
+.table-wrap th.col-log,
+.table-wrap td.col-log,
+.table-wrap th.col-log-sis,
+.table-wrap td.col-log-sis {
+    width: 230px;
+    min-width: 230px;
+    white-space: nowrap;
+}
+.table-wrap td.col-log .texto-info-banco,
+.table-wrap td.col-log-sis .texto-info-banco,
+.table-wrap td.col-rede .texto-info-banco {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(86, 111, 145, 0.16);
+    background: rgba(255, 255, 255, 0.74);
+    color: #183957;
+    white-space: nowrap;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+.table-wrap td.col-rede .texto-info-banco {
+    border-color: rgba(47, 125, 225, 0.22);
+    background: rgba(47, 125, 225, 0.08);
+}
+.table-wrap td.col-log .texto-info-banco,
+.table-wrap td.col-log-sis .texto-info-banco {
+    justify-content: flex-start;
+}
+.table-wrap td.col-log .texto-info-banco.alerta,
+.table-wrap td.col-log-sis .texto-info-banco.alerta {
+    border-color: rgba(216, 76, 76, 0.24);
+    background: rgba(216, 76, 76, 0.10);
+    color: #ad2d2d;
 }

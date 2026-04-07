@@ -282,6 +282,122 @@ function obterCampoOrigemNotasFiscais(mysqli $conexao, string $nomeBanco): strin
 }
 
 
+function formatarTamanhoGb(float $bytes): string
+{
+    $gb = $bytes / 1024 / 1024 / 1024;
+    return number_format($gb, 2, '.', '') . ' GB';
+}
+
+function obterCampoRede(mysqli $conexao, string $nomeBanco): string
+{
+    $sql = "
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = ?
+          AND table_name = 'log_sis'
+          AND column_name LIKE 'rede%'
+        ORDER BY ordinal_position
+        LIMIT 1
+    ";
+
+    $stmt = $conexao->prepare($sql);
+    if ($stmt === false) {
+        return 'ERRO';
+    }
+
+    $stmt->bind_param('s', $nomeBanco);
+    $ok = $stmt->execute();
+    if ($ok === false) {
+        $stmt->close();
+        return 'ERRO';
+    }
+
+    $resultado = $stmt->get_result();
+    $campo = 'N/A';
+
+    if ($resultado !== false) {
+        $linha = $resultado->fetch_assoc();
+        if (is_array($linha) && !empty($linha['column_name'])) {
+            $campo = (string) $linha['column_name'];
+        }
+        $resultado->free();
+    }
+
+    $stmt->close();
+
+    return $campo;
+}
+
+function obterInformacoesLog(mysqli $conexao, string $nomeBanco): array
+{
+    $retorno = [
+        'rede' => 'N/A',
+        'log' => 'N/A',
+        'log_sis' => 'N/A',
+        'log_bytes' => 0.0,
+        'log_sis_bytes' => 0.0,
+        'alerta_log' => false,
+        'alerta_log_sis' => false,
+    ];
+
+    $retorno['rede'] = obterCampoRede($conexao, $nomeBanco);
+
+    $sql = "
+        SELECT
+            table_name,
+            engine,
+            COALESCE(data_length, 0) + COALESCE(index_length, 0) AS tamanho_bytes
+        FROM information_schema.tables
+        WHERE table_schema = ?
+          AND table_name IN ('log', 'log_sis')
+    ";
+
+    $stmt = $conexao->prepare($sql);
+    if ($stmt === false) {
+        $retorno['log'] = 'ERRO';
+        $retorno['log_sis'] = 'ERRO';
+        return $retorno;
+    }
+
+    $stmt->bind_param('s', $nomeBanco);
+    $ok = $stmt->execute();
+    if ($ok === false) {
+        $stmt->close();
+        $retorno['log'] = 'ERRO';
+        $retorno['log_sis'] = 'ERRO';
+        return $retorno;
+    }
+
+    $resultado = $stmt->get_result();
+    if ($resultado !== false) {
+        while ($linha = $resultado->fetch_assoc()) {
+            $nomeTabela = isset($linha['table_name']) ? (string) $linha['table_name'] : '';
+            $engine = isset($linha['engine']) && $linha['engine'] !== null && $linha['engine'] !== ''
+                ? (string) $linha['engine']
+                : 'N/A';
+            $tamanhoBytes = isset($linha['tamanho_bytes']) ? (float) $linha['tamanho_bytes'] : 0.0;
+            $texto = $engine . ' ' . formatarTamanhoGb($tamanhoBytes);
+            $alerta = $tamanhoBytes > (5 * 1024 * 1024 * 1024);
+
+            if ($nomeTabela === 'log') {
+                $retorno['log'] = $texto;
+                $retorno['log_bytes'] = $tamanhoBytes;
+                $retorno['alerta_log'] = $alerta;
+            } elseif ($nomeTabela === 'log_sis') {
+                $retorno['log_sis'] = $texto;
+                $retorno['log_sis_bytes'] = $tamanhoBytes;
+                $retorno['alerta_log_sis'] = $alerta;
+            }
+        }
+        $resultado->free();
+    }
+
+    $stmt->close();
+
+    return $retorno;
+}
+
+
 mysqli_report(MYSQLI_REPORT_OFF);
 
 $configuracao = lerJsonArquivo($arquivoConfiguracao, 'config.json');
@@ -323,6 +439,14 @@ $indiceServidorConfig = localizarIndiceServidorConfig(
     $porta
 );
 
+$redeInfo = 'N/A';
+$logInfo = 'N/A';
+$logSisInfo = 'N/A';
+$logBytes = 0.0;
+$logSisBytes = 0.0;
+$alertaLog = false;
+$alertaLogSis = false;
+
 if ($nome === '' || $endereco === '' || $database === '') {
     responderJson([
         'ok' => false,
@@ -333,6 +457,13 @@ if ($nome === '' || $endereco === '' || $database === '') {
         'porta' => (string) $porta,
         'database' => $database,
         'indiceServidor' => (string) $indiceServidorConfig,
+        'rede' => $redeInfo,
+        'log' => $logInfo,
+        'log_sis' => $logSisInfo,
+        'log_bytes' => $logBytes,
+        'log_sis_bytes' => $logSisBytes,
+        'alerta_log' => $alertaLog,
+        'alerta_log_sis' => $alertaLogSis,
         'contabilizar_erro' => 1,
         'contabilizar_ok' => 0,
         'erro_conexao' => false,
@@ -358,12 +489,28 @@ if ($conexao === false) {
         'porta' => (string) $porta,
         'database' => $database,
         'indiceServidor' => (string) $indiceServidorConfig,
+        'rede' => $redeInfo,
+        'log' => $logInfo,
+        'log_sis' => $logSisInfo,
+        'log_bytes' => $logBytes,
+        'log_sis_bytes' => $logSisBytes,
+        'alerta_log' => $alertaLog,
+        'alerta_log_sis' => $alertaLogSis,
         'contabilizar_erro' => 1,
         'contabilizar_ok' => 0,
         'erro_conexao' => true,
         'duracao_ms' => (int) round((microtime(true) - $inicio) * 1000),
     ], 500);
 }
+
+$informacoesLog = obterInformacoesLog($conexao, $database);
+$redeInfo = isset($informacoesLog['rede']) ? (string) $informacoesLog['rede'] : 'N/A';
+$logInfo = isset($informacoesLog['log']) ? (string) $informacoesLog['log'] : 'N/A';
+$logSisInfo = isset($informacoesLog['log_sis']) ? (string) $informacoesLog['log_sis'] : 'N/A';
+$logBytes = isset($informacoesLog['log_bytes']) ? (float) $informacoesLog['log_bytes'] : 0.0;
+$logSisBytes = isset($informacoesLog['log_sis_bytes']) ? (float) $informacoesLog['log_sis_bytes'] : 0.0;
+$alertaLog = !empty($informacoesLog['alerta_log']);
+$alertaLogSis = !empty($informacoesLog['alerta_log_sis']);
 
 $presenca = obterPresencaTabelas($conexao, $database);
 if (!empty($presenca['erro'])) {
@@ -377,6 +524,13 @@ if (!empty($presenca['erro'])) {
         'porta' => (string) $porta,
         'database' => $database,
         'indiceServidor' => (string) $indiceServidorConfig,
+        'rede' => $redeInfo,
+        'log' => $logInfo,
+        'log_sis' => $logSisInfo,
+        'log_bytes' => $logBytes,
+        'log_sis_bytes' => $logSisBytes,
+        'alerta_log' => $alertaLog,
+        'alerta_log_sis' => $alertaLogSis,
         'contabilizar_erro' => 1,
         'contabilizar_ok' => 0,
         'erro_conexao' => false,
@@ -395,6 +549,13 @@ if (!$presenca['notas_fiscais_eletronicas']) {
         'porta' => (string) $porta,
         'database' => $database,
         'indiceServidor' => (string) $indiceServidorConfig,
+        'rede' => $redeInfo,
+        'log' => $logInfo,
+        'log_sis' => $logSisInfo,
+        'log_bytes' => $logBytes,
+        'log_sis_bytes' => $logSisBytes,
+        'alerta_log' => $alertaLog,
+        'alerta_log_sis' => $alertaLogSis,
         'contabilizar_erro' => 1,
         'contabilizar_ok' => 0,
         'erro_conexao' => false,
@@ -413,6 +574,13 @@ if (!$presenca['notas_fiscais']) {
         'porta' => (string) $porta,
         'database' => $database,
         'indiceServidor' => (string) $indiceServidorConfig,
+        'rede' => $redeInfo,
+        'log' => $logInfo,
+        'log_sis' => $logSisInfo,
+        'log_bytes' => $logBytes,
+        'log_sis_bytes' => $logSisBytes,
+        'alerta_log' => $alertaLog,
+        'alerta_log_sis' => $alertaLogSis,
         'contabilizar_erro' => 1,
         'contabilizar_ok' => 0,
         'erro_conexao' => false,
@@ -449,6 +617,13 @@ if ($resultadoConsulta === false) {
         'porta' => (string) $porta,
         'database' => $database,
         'indiceServidor' => (string) $indiceServidorConfig,
+        'rede' => $redeInfo,
+        'log' => $logInfo,
+        'log_sis' => $logSisInfo,
+        'log_bytes' => $logBytes,
+        'log_sis_bytes' => $logSisBytes,
+        'alerta_log' => $alertaLog,
+        'alerta_log_sis' => $alertaLogSis,
         'contabilizar_erro' => 1,
         'contabilizar_ok' => 0,
         'erro_conexao' => false,
@@ -469,6 +644,13 @@ responderJson([
     'porta' => (string) $porta,
     'database' => $database,
     'indiceServidor' => (string) $indiceServidorConfig,
+    'rede' => $redeInfo,
+    'log' => $logInfo,
+    'log_sis' => $logSisInfo,
+    'log_bytes' => $logBytes,
+    'log_sis_bytes' => $logSisBytes,
+    'alerta_log' => $alertaLog,
+    'alerta_log_sis' => $alertaLogSis,
     'diasConsulta' => (string) $diasConsulta,
     'quantidade' => $quantidade,
     'classeLinha' => ($quantidade > 100) ? 'linha-vermelha' : 'linha-verde',
