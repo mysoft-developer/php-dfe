@@ -1266,6 +1266,7 @@ $versaoCssDetalhes = @filemtime(__DIR__ . '/consultar_notas_detalhes.css');
 .filter-grid-detalhes .filter-item.status input { width:78px; }
 .filter-grid-detalhes .filter-item.operacao input { width:68px; text-transform:uppercase; }
 .filter-grid-detalhes .filter-item.modelo input { width:68px; }
+.filter-grid-detalhes .filter-item.origem input { width:78px; }
 .filter-grid-detalhes .filter-item.limpar { justify-content:flex-end; width:132px; min-width:132px; }
 .filter-grid-detalhes .filter-item.limpar .botao { min-height:52px; width:100%; }
 </style>
@@ -1285,6 +1286,7 @@ var ESTADO_DETALHES = {
     filtroStatus: '',
     filtroOperacao: '',
     filtroModelo: '',
+    filtroOrigem: '',
     selecionados: new Set(),
     envioEmAndamento: false,
     persistenciaUi: null,
@@ -1590,13 +1592,15 @@ function obterLinhasFiltradas() {
     var filtroStatus = String(ESTADO_DETALHES.filtroStatus || '').trim();
     var filtroOperacao = normalizarTextoFiltro(ESTADO_DETALHES.filtroOperacao);
     var filtroModelo = String(ESTADO_DETALHES.filtroModelo || '').trim();
+    var filtroOrigem = String(ESTADO_DETALHES.filtroOrigem || '').trim();
 
     return ESTADO_DETALHES.linhas.filter(function(item) {
         var descricaoOk = !filtroDescricao || normalizarTextoFiltro(item.descricao || '').indexOf(filtroDescricao) !== -1;
         var statusOk = !filtroStatus || String(item.status || '').trim() === filtroStatus;
         var operacaoOk = !filtroOperacao || normalizarTextoFiltro(item.operacao || '') === filtroOperacao;
         var modeloOk = !filtroModelo || String(item.modelo || '').trim() === filtroModelo;
-        return descricaoOk && statusOk && operacaoOk && modeloOk;
+        var origemOk = !filtroOrigem || String(item.origem || '').trim() === filtroOrigem;
+        return descricaoOk && statusOk && operacaoOk && modeloOk && origemOk;
     });
 }
 function montarDataHoraNota(item) {
@@ -1807,6 +1811,7 @@ function salvarEstadoUiDebounce() {
             filtroStatus: ESTADO_DETALHES.filtroStatus,
             filtroOperacao: ESTADO_DETALHES.filtroOperacao,
             filtroModelo: ESTADO_DETALHES.filtroModelo,
+            filtroOrigem: ESTADO_DETALHES.filtroOrigem,
             selecionados: Array.from(ESTADO_DETALHES.selecionados),
             atualizadoEm: new Date().toISOString()
         });
@@ -1832,17 +1837,20 @@ function restaurarEstadoUi() {
         var filtroStatus = document.getElementById('filtroStatus');
         var filtroOperacao = document.getElementById('filtroOperacao');
         var filtroModelo = document.getElementById('filtroModelo');
+        var filtroOrigem = document.getElementById('filtroOrigem');
 
         if (!registro || LIMPAR_FILTRO_AO_ABRIR) {
             ESTADO_DETALHES.filtro = '';
             ESTADO_DETALHES.filtroStatus = '';
             ESTADO_DETALHES.filtroOperacao = '';
             ESTADO_DETALHES.filtroModelo = '';
+            ESTADO_DETALHES.filtroOrigem = '';
         } else {
             ESTADO_DETALHES.filtro = String(registro.filtro || '');
             ESTADO_DETALHES.filtroStatus = String(registro.filtroStatus || '');
             ESTADO_DETALHES.filtroOperacao = String(registro.filtroOperacao || '');
             ESTADO_DETALHES.filtroModelo = String(registro.filtroModelo || '');
+            ESTADO_DETALHES.filtroOrigem = String(registro.filtroOrigem || '');
         }
 
         if (filtroDescricao) {
@@ -1856,6 +1864,9 @@ function restaurarEstadoUi() {
         }
         if (filtroModelo) {
             filtroModelo.value = ESTADO_DETALHES.filtroModelo;
+        }
+        if (filtroOrigem) {
+            filtroOrigem.value = ESTADO_DETALHES.filtroOrigem;
         }
 
         var validos = new Set(ESTADO_DETALHES.linhas.map(function(item) { return String(item.idt || ''); }));
@@ -1900,21 +1911,34 @@ function aplicarFiltroModelo() {
     renderizarTabelaDetalhes();
     salvarEstadoUiDebounce();
 }
+function aplicarFiltroOrigem() {
+    var campo = document.getElementById('filtroOrigem');
+    var valor = campo ? String(campo.value || '').replace(/\D+/g, '').slice(0, 3) : '';
+    if (campo) {
+        campo.value = valor;
+    }
+    ESTADO_DETALHES.filtroOrigem = valor;
+    renderizarTabelaDetalhes();
+    salvarEstadoUiDebounce();
+}
 function limparTodosOsFiltros() {
     ESTADO_DETALHES.filtro = '';
     ESTADO_DETALHES.filtroStatus = '';
     ESTADO_DETALHES.filtroOperacao = '';
     ESTADO_DETALHES.filtroModelo = '';
+    ESTADO_DETALHES.filtroOrigem = '';
 
     var filtroDescricao = document.getElementById('filtroDescricao');
     var filtroStatus = document.getElementById('filtroStatus');
     var filtroOperacao = document.getElementById('filtroOperacao');
     var filtroModelo = document.getElementById('filtroModelo');
+    var filtroOrigem = document.getElementById('filtroOrigem');
 
     if (filtroDescricao) { filtroDescricao.value = ''; }
     if (filtroStatus) { filtroStatus.value = ''; }
     if (filtroOperacao) { filtroOperacao.value = ''; }
     if (filtroModelo) { filtroModelo.value = ''; }
+    if (filtroOrigem) { filtroOrigem.value = ''; }
 
     renderizarTabelaDetalhes();
     salvarEstadoUiDebounce();
@@ -2281,6 +2305,10 @@ window.addEventListener('DOMContentLoaded', function() {
                             <div class="filter-item modelo">
                                 <label for="filtroModelo">Modelo</label>
                                 <input id="filtroModelo" type="text" inputmode="numeric" maxlength="2" autocomplete="off" oninput="aplicarFiltroModelo()" placeholder="55">
+                            </div>
+                            <div class="filter-item origem">
+                                <label for="filtroOrigem">Origem</label>
+                                <input id="filtroOrigem" type="text" inputmode="numeric" maxlength="3" autocomplete="off" oninput="aplicarFiltroOrigem()" placeholder="001">
                             </div>
                             <div class="filter-item limpar">
                                 <label>&nbsp;</label>

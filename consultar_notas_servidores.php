@@ -313,24 +313,23 @@ error_log(
 }
 .table-wrap table {
     min-width: 1660px;
+    table-layout: fixed;
 }
+.table-wrap thead th,
+.table-wrap tbody tr:not(.linha-grupo) td,
 .table-wrap td.col-nome,
-.table-wrap th.col-nome {
-    width: 150px;
-}
+.table-wrap th.col-nome,
 .table-wrap td.col-database,
-.table-wrap th.col-database {
-    width: 145px;
-}
+.table-wrap th.col-database,
 .table-wrap td.col-rede,
-.table-wrap th.col-rede {
-    width: 110px;
-}
+.table-wrap th.col-rede,
 .table-wrap td.col-log,
 .table-wrap th.col-log,
 .table-wrap td.col-log-sis,
-.table-wrap th.col-log-sis {
-    width: 230px;
+.table-wrap th.col-log-sis,
+.table-wrap td.col-quantidade,
+.table-wrap th.col-quantidade {
+    width: 12.5%;
 }
 .texto-info-banco {
     display: inline-block;
