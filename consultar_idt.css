@@ -1,3 +1,20 @@
+:root {
+    /* AJUSTE AQUI AS LARGURAS DAS COLUNAS DA TABELA */
+    --consulta-idt-col-servidor: 180px;
+    --consulta-idt-col-porta: 72px;
+    --consulta-idt-col-database: 180px;
+    --consulta-idt-col-data: 90px;
+    --consulta-idt-col-hora: 90px;
+    --consulta-idt-col-ms: 72px;
+    --consulta-idt-col-basedados: 180px;
+    --consulta-idt-col-pid: 72px;
+    --consulta-idt-col-unit: 150px;
+    --consulta-idt-col-idt: 100px;
+    --consulta-idt-col-chave: 220px;
+    --consulta-idt-col-texto: 260px;
+    --consulta-idt-col-querie: 35vw;
+}
+
 .panel-form form.form-consulta-idt {
     grid-template-columns: minmax(220px, 1fr) 160px 180px auto;
 }
@@ -52,8 +69,127 @@
     font-weight: 600;
 }
 
+.table-wrap {
+    overflow: auto;
+}
+
 .table-wrap table {
-    min-width: 1200px;
+    width: max-content;
+    min-width: 100%;
+    table-layout: fixed;
+}
+
+.table-wrap th,
+.table-wrap td {
+    white-space: nowrap;
+}
+
+.table-wrap td.col-texto,
+.table-wrap td.col-querie,
+.table-wrap td.col-query,
+.table-wrap td.col-sql {
+    white-space: normal;
+    word-break: break-word;
+}
+
+.table-wrap col.col-servidor,
+.table-wrap th.col-servidor,
+.table-wrap td.col-servidor {
+    width: var(--consulta-idt-col-servidor);
+    min-width: var(--consulta-idt-col-servidor);
+}
+
+.table-wrap col.col-porta,
+.table-wrap th.col-porta,
+.table-wrap td.col-porta {
+    width: var(--consulta-idt-col-porta);
+    min-width: var(--consulta-idt-col-porta);
+}
+
+.table-wrap col.col-database,
+.table-wrap th.col-database,
+.table-wrap td.col-database {
+    width: var(--consulta-idt-col-database);
+    min-width: var(--consulta-idt-col-database);
+}
+
+.table-wrap col.col-data,
+.table-wrap th.col-data,
+.table-wrap td.col-data {
+    width: var(--consulta-idt-col-data);
+    min-width: var(--consulta-idt-col-data);
+}
+
+.table-wrap col.col-hora,
+.table-wrap th.col-hora,
+.table-wrap td.col-hora {
+    width: var(--consulta-idt-col-hora);
+    min-width: var(--consulta-idt-col-hora);
+}
+
+.table-wrap col.col-ms,
+.table-wrap th.col-ms,
+.table-wrap td.col-ms {
+    width: var(--consulta-idt-col-ms);
+    min-width: var(--consulta-idt-col-ms);
+}
+
+.table-wrap col.col-basedados,
+.table-wrap th.col-basedados,
+.table-wrap td.col-basedados,
+.table-wrap col.col-base-dados,
+.table-wrap th.col-base-dados,
+.table-wrap td.col-base-dados {
+    width: var(--consulta-idt-col-basedados);
+    min-width: var(--consulta-idt-col-basedados);
+}
+
+.table-wrap col.col-pid,
+.table-wrap th.col-pid,
+.table-wrap td.col-pid {
+    width: var(--consulta-idt-col-pid);
+    min-width: var(--consulta-idt-col-pid);
+}
+
+.table-wrap col.col-unit,
+.table-wrap th.col-unit,
+.table-wrap td.col-unit {
+    width: var(--consulta-idt-col-unit);
+    min-width: var(--consulta-idt-col-unit);
+}
+
+.table-wrap col.col-idt,
+.table-wrap th.col-idt,
+.table-wrap td.col-idt {
+    width: var(--consulta-idt-col-idt);
+    min-width: var(--consulta-idt-col-idt);
+}
+
+.table-wrap col.col-chave,
+.table-wrap th.col-chave,
+.table-wrap td.col-chave {
+    width: var(--consulta-idt-col-chave);
+    min-width: var(--consulta-idt-col-chave);
+}
+
+.table-wrap col.col-texto,
+.table-wrap th.col-texto,
+.table-wrap td.col-texto {
+    width: var(--consulta-idt-col-texto);
+    min-width: var(--consulta-idt-col-texto);
+}
+
+.table-wrap col.col-querie,
+.table-wrap th.col-querie,
+.table-wrap td.col-querie,
+.table-wrap col.col-query,
+.table-wrap th.col-query,
+.table-wrap td.col-query,
+.table-wrap col.col-sql,
+.table-wrap th.col-sql,
+.table-wrap td.col-sql {
+    width: var(--consulta-idt-col-querie);
+    min-width: var(--consulta-idt-col-querie);
 }
 
 .surface-head .toolbar-inline {

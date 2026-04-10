@@ -18,6 +18,30 @@ function h($valor)
     return htmlspecialchars((string)$valor, ENT_QUOTES, 'UTF-8');
 }
 
+function classeColunaTabela($nomeColuna)
+{
+    $nomeColuna = strtolower(trim((string)$nomeColuna));
+
+    $mapaAcentos = array(
+        'á' => 'a', 'à' => 'a', 'ã' => 'a', 'â' => 'a', 'ä' => 'a',
+        'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+        'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
+        'ó' => 'o', 'ò' => 'o', 'õ' => 'o', 'ô' => 'o', 'ö' => 'o',
+        'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+        'ç' => 'c'
+    );
+
+    $nomeColuna = strtr($nomeColuna, $mapaAcentos);
+    $nomeColuna = str_replace(array(' ', '_'), '-', $nomeColuna);
+    $nomeColuna = preg_replace('/[^a-z0-9\-]/', '', $nomeColuna);
+
+    if ($nomeColuna === 'query') {
+        $nomeColuna = 'querie';
+    }
+
+    return 'col-' . $nomeColuna;
+}
+
 function buscarResultadosStatement($stmt)
 {
     $linhas = array();
@@ -503,13 +527,22 @@ window.addEventListener('DOMContentLoaded', function() {
 
             <div class="table-wrap">
                 <table>
+                    <colgroup>
+                        <col class="col-servidor">
+                        <col class="col-porta">
+                        <col class="col-database">
+                        <?php foreach ($colunasResultado as $coluna): ?>
+                            <col class="<?php echo h(classeColunaTabela($coluna)); ?>">
+                        <?php endforeach; ?>
+                    </colgroup>
                     <thead>
                         <tr>
-                            <th>Servidor</th>
-                            <th>Porta</th>
-                            <th>Database</th>
+                            <th class="col-servidor">Servidor</th>
+                            <th class="col-porta">Porta</th>
+                            <th class="col-database">Database</th>
                             <?php foreach ($colunasResultado as $coluna): ?>
-                                <th><?php echo h($coluna); ?></th>
+                                <?php $classeColuna = classeColunaTabela($coluna); ?>
+                                <th class="<?php echo h($classeColuna); ?>"><?php echo h($coluna); ?></th>
                             <?php endforeach; ?>
                         </tr>
                     </thead>
@@ -517,11 +550,12 @@ window.addEventListener('DOMContentLoaded', function() {
                         <?php if (count($resultados) > 0): ?>
                             <?php foreach ($resultados as $linha): ?>
                                 <tr>
-                                    <td><?php echo h($linha['_servidor']); ?></td>
-                                    <td><?php echo h($linha['_porta']); ?></td>
-                                    <td><?php echo h($linha['_database']); ?></td>
+                                    <td class="col-servidor"><?php echo h($linha['_servidor']); ?></td>
+                                    <td class="col-porta"><?php echo h($linha['_porta']); ?></td>
+                                    <td class="col-database"><?php echo h($linha['_database']); ?></td>
                                     <?php foreach ($colunasResultado as $coluna): ?>
-                                        <td><?php echo h(isset($linha[$coluna]) ? $linha[$coluna] : ''); ?></td>
+                                        <?php $classeColuna = classeColunaTabela($coluna); ?>
+                                        <td class="<?php echo h($classeColuna); ?>"><?php echo h(isset($linha[$coluna]) ? $linha[$coluna] : ''); ?></td>
                                     <?php endforeach; ?>
                                 </tr>
                             <?php endforeach; ?>

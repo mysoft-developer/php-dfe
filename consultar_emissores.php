@@ -37,6 +37,34 @@ function tituloColuna($coluna)
     return $coluna;
 }
 
+function classeColunaTabela($coluna)
+{
+    $classes = array(
+        'nome' => 'coluna-nome',
+        'endereco' => 'coluna-endereco',
+        'porta' => 'coluna-porta',
+        'database' => 'coluna-database',
+        'idt' => 'coluna-idt',
+        'webservice' => 'coluna-webservice',
+        'serie_nota_fiscal' => 'coluna-serie',
+        'modelo_nota_fiscal' => 'coluna-modelo',
+        'empresa' => 'coluna-empresa',
+        'vencimento' => 'coluna-vencimento',
+        'origem' => 'coluna-origem',
+        'validar_nfe' => 'coluna-validar',
+        'cancelar_nfe' => 'coluna-cancelar',
+        'inutilizar_nfe' => 'coluna-inutilizar',
+        'consultar_nfe' => 'coluna-consultar',
+        'offline_nfe' => 'coluna-offline'
+    );
+
+    if (isset($classes[$coluna])) {
+        return $classes[$coluna];
+    }
+
+    return '';
+}
+
 function formatarOrigem($origem)
 {
     $origem = trim((string)$origem);
@@ -454,6 +482,18 @@ $colunasResultado = array(
     'offline_nfe'
 );
 
+$classesColunasFixas = array(
+    'nome' => classeColunaTabela('nome'),
+    'endereco' => classeColunaTabela('endereco'),
+    'porta' => classeColunaTabela('porta'),
+    'database' => classeColunaTabela('database')
+);
+
+$classesColunasResultado = array();
+foreach ($colunasResultado as $colunaResultado) {
+    $classesColunasResultado[$colunaResultado] = classeColunaTabela($colunaResultado);
+}
+
 $grupoSelecionado = isset($_GET['grupo']) ? trim((string)$_GET['grupo']) : '';
 $origemFiltroInicial = isset($_GET['origem']) ? formatarOrigem((string)$_GET['origem']) : '';
 $consultaAutomatica = $grupoSelecionado !== '';
@@ -705,12 +745,12 @@ if ($origemFiltroInicial !== '') {
                 <table id="tabela_resultados">
                     <thead>
                         <tr>
-                            <th>Nome</th>
-                            <th>Endereço</th>
-                            <th>Porta</th>
-                            <th>Database</th>
+                            <th class="<?php echo h($classesColunasFixas['nome']); ?>">Nome</th>
+                            <th class="<?php echo h($classesColunasFixas['endereco']); ?>">Endereço</th>
+                            <th class="<?php echo h($classesColunasFixas['porta']); ?>">Porta</th>
+                            <th class="<?php echo h($classesColunasFixas['database']); ?>">Database</th>
                             <?php foreach ($colunasResultado as $coluna): ?>
-                                <th><?php echo h(tituloColuna($coluna)); ?></th>
+                                <th class="<?php echo h(isset($classesColunasResultado[$coluna]) ? $classesColunasResultado[$coluna] : ''); ?>"><?php echo h(tituloColuna($coluna)); ?></th>
                             <?php endforeach; ?>
                         </tr>
                     </thead>
@@ -725,6 +765,7 @@ if ($origemFiltroInicial !== '') {
 
 <script>
 var COLUNAS_RESULTADO = <?php echo json_encode($colunasResultado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+var CLASSES_COLUNAS_RESULTADO = <?php echo json_encode($classesColunasResultado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
 var ORIGEM_FILTRO_INICIAL = <?php echo json_encode($origemFiltroInicial, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
 var GRUPO_INICIAL = <?php echo json_encode($grupoSelecionado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
 var CONSULTA_AUTOMATICA = <?php echo $consultaAutomatica ? 'true' : 'false'; ?>;
@@ -741,6 +782,20 @@ function escaparHtml(texto) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+}
+
+function formatarSerieHtml(valor) {
+    var texto = String(valor == null ? '' : valor);
+    if (texto === '') {
+        return '';
+    }
+
+    var partes = texto.split(',');
+    for (var i = 0; i < partes.length; i++) {
+        partes[i] = escaparHtml(partes[i]);
+    }
+
+    return partes.join(',<wbr>');
 }
 
 function mostrarOverlayConsultaDados(texto, subtexto) {
@@ -924,18 +979,23 @@ function renderizarTabela() {
         }
 
         html += '<tr data-idt="' + escaparHtml(item.idt || '') + '" data-origem="' + escaparHtml(origemLinha) + '" data-modelo="' + escaparHtml(item.modelo_nota_fiscal || '') + '">';
-        html += '<td>' + escaparHtml(item._nome || '') + '</td>';
-        html += '<td>' + escaparHtml(item._endereco || '') + '</td>';
-        html += '<td>' + escaparHtml(item._porta || '') + '</td>';
-        html += '<td>' + escaparHtml(item._database || '') + '</td>';
+        html += '<td class="coluna-nome">' + escaparHtml(item._nome || '') + '</td>';
+        html += '<td class="coluna-endereco">' + escaparHtml(item._endereco || '') + '</td>';
+        html += '<td class="coluna-porta">' + escaparHtml(item._porta || '') + '</td>';
+        html += '<td class="coluna-database">' + escaparHtml(item._database || '') + '</td>';
 
         for (var c = 0; c < COLUNAS_RESULTADO.length; c++) {
             var coluna = COLUNAS_RESULTADO[c];
             var valor = item[coluna] == null ? '' : String(item[coluna]);
+            var classeColuna = CLASSES_COLUNAS_RESULTADO[coluna] || '';
             if (coluna === 'origem') {
                 valor = String(item.origem_formatada || '');
             }
-            html += '<td>' + escaparHtml(valor) + '</td>';
+            if (coluna === 'serie_nota_fiscal') {
+                html += '<td' + (classeColuna ? ' class="' + escaparHtml(classeColuna) + '"' : '') + '>' + formatarSerieHtml(valor) + '</td>';
+            } else {
+                html += '<td' + (classeColuna ? ' class="' + escaparHtml(classeColuna) + '"' : '') + '>' + escaparHtml(valor) + '</td>';
+            }
         }
 
         html += '</tr>';

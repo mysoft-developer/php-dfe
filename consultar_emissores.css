@@ -1,3 +1,22 @@
+:root {
+    --consulta-emissores-col-nome: 120px;
+    --consulta-emissores-col-endereco: 118px;
+    --consulta-emissores-col-porta: 70px;
+    --consulta-emissores-col-database: 120px;
+    --consulta-emissores-col-idt: 74px;
+    --consulta-emissores-col-webservice: 90px;
+    --consulta-emissores-col-serie: 120px;
+    --consulta-emissores-col-modelo: 64px;
+    --consulta-emissores-col-empresa: 230px;
+    --consulta-emissores-col-vencimento: 118px;
+    --consulta-emissores-col-origem: 72px;
+    --consulta-emissores-col-validar: 72px;
+    --consulta-emissores-col-cancelar: 82px;
+    --consulta-emissores-col-inutilizar: 92px;
+    --consulta-emissores-col-consultar: 88px;
+    --consulta-emissores-col-offline: 72px;
+}
+
 .panel-form form.form-upload-emissores {
     grid-template-columns: minmax(320px, 1fr) auto;
 }
@@ -67,8 +86,166 @@
     font-weight: 600;
 }
 
-.table-wrap table {
-    min-width: 1700px;
+#tabela_resultados {
+    table-layout: fixed;
+    min-width: calc(
+        var(--consulta-emissores-col-nome) +
+        var(--consulta-emissores-col-endereco) +
+        var(--consulta-emissores-col-porta) +
+        var(--consulta-emissores-col-database) +
+        var(--consulta-emissores-col-idt) +
+        var(--consulta-emissores-col-webservice) +
+        var(--consulta-emissores-col-serie) +
+        var(--consulta-emissores-col-modelo) +
+        var(--consulta-emissores-col-empresa) +
+        var(--consulta-emissores-col-vencimento) +
+        var(--consulta-emissores-col-origem) +
+        var(--consulta-emissores-col-validar) +
+        var(--consulta-emissores-col-cancelar) +
+        var(--consulta-emissores-col-inutilizar) +
+        var(--consulta-emissores-col-consultar) +
+        var(--consulta-emissores-col-offline)
+    );
+}
+
+#tabela_resultados th,
+#tabela_resultados td {
+    box-sizing: border-box;
+}
+
+#tabela_resultados th.coluna-nome,
+#tabela_resultados td.coluna-nome {
+    width: var(--consulta-emissores-col-nome);
+    min-width: var(--consulta-emissores-col-nome);
+}
+
+#tabela_resultados th.coluna-endereco,
+#tabela_resultados td.coluna-endereco {
+    width: var(--consulta-emissores-col-endereco);
+    min-width: var(--consulta-emissores-col-endereco);
+}
+
+#tabela_resultados th.coluna-porta,
+#tabela_resultados td.coluna-porta {
+    width: var(--consulta-emissores-col-porta);
+    min-width: var(--consulta-emissores-col-porta);
+}
+
+#tabela_resultados th.coluna-database,
+#tabela_resultados td.coluna-database {
+    width: var(--consulta-emissores-col-database);
+    min-width: var(--consulta-emissores-col-database);
+}
+
+#tabela_resultados th.coluna-idt,
+#tabela_resultados td.coluna-idt {
+    width: var(--consulta-emissores-col-idt);
+    min-width: var(--consulta-emissores-col-idt);
+}
+
+#tabela_resultados th.coluna-webservice,
+#tabela_resultados td.coluna-webservice {
+    width: var(--consulta-emissores-col-webservice);
+    min-width: var(--consulta-emissores-col-webservice);
+}
+
+#tabela_resultados th.coluna-serie,
+#tabela_resultados td.coluna-serie {
+    width: var(--consulta-emissores-col-serie);
+    min-width: var(--consulta-emissores-col-serie);
+}
+
+#tabela_resultados th.coluna-modelo,
+#tabela_resultados td.coluna-modelo {
+    width: var(--consulta-emissores-col-modelo);
+    min-width: var(--consulta-emissores-col-modelo);
+}
+
+#tabela_resultados th.coluna-empresa,
+#tabela_resultados td.coluna-empresa {
+    width: var(--consulta-emissores-col-empresa);
+    min-width: var(--consulta-emissores-col-empresa);
+}
+
+#tabela_resultados th.coluna-vencimento,
+#tabela_resultados td.coluna-vencimento {
+    width: var(--consulta-emissores-col-vencimento);
+    min-width: var(--consulta-emissores-col-vencimento);
+}
+
+#tabela_resultados th.coluna-origem,
+#tabela_resultados td.coluna-origem {
+    width: var(--consulta-emissores-col-origem);
+    min-width: var(--consulta-emissores-col-origem);
+}
+
+#tabela_resultados th.coluna-validar,
+#tabela_resultados td.coluna-validar {
+    width: var(--consulta-emissores-col-validar);
+    min-width: var(--consulta-emissores-col-validar);
+}
+
+#tabela_resultados th.coluna-cancelar,
+#tabela_resultados td.coluna-cancelar {
+    width: var(--consulta-emissores-col-cancelar);
+    min-width: var(--consulta-emissores-col-cancelar);
+}
+
+#tabela_resultados th.coluna-inutilizar,
+#tabela_resultados td.coluna-inutilizar {
+    width: var(--consulta-emissores-col-inutilizar);
+    min-width: var(--consulta-emissores-col-inutilizar);
+}
+
+#tabela_resultados th.coluna-consultar,
+#tabela_resultados td.coluna-consultar {
+    width: var(--consulta-emissores-col-consultar);
+    min-width: var(--consulta-emissores-col-consultar);
+}
+
+#tabela_resultados th.coluna-offline,
+#tabela_resultados td.coluna-offline {
+    width: var(--consulta-emissores-col-offline);
+    min-width: var(--consulta-emissores-col-offline);
+}
+
+#tabela_resultados th.coluna-porta,
+#tabela_resultados td.coluna-porta,
+#tabela_resultados th.coluna-idt,
+#tabela_resultados td.coluna-idt,
+#tabela_resultados th.coluna-webservice,
+#tabela_resultados td.coluna-webservice,
+#tabela_resultados th.coluna-modelo,
+#tabela_resultados td.coluna-modelo,
+#tabela_resultados th.coluna-origem,
+#tabela_resultados td.coluna-origem,
+#tabela_resultados th.coluna-validar,
+#tabela_resultados td.coluna-validar,
+#tabela_resultados th.coluna-cancelar,
+#tabela_resultados td.coluna-cancelar,
+#tabela_resultados th.coluna-inutilizar,
+#tabela_resultados td.coluna-inutilizar,
+#tabela_resultados th.coluna-consultar,
+#tabela_resultados td.coluna-consultar,
+#tabela_resultados th.coluna-offline,
+#tabela_resultados td.coluna-offline,
+#tabela_resultados th.coluna-vencimento,
+#tabela_resultados td.coluna-vencimento {
+    white-space: nowrap;
+    text-align: center;
+}
+
+#tabela_resultados th.coluna-serie,
+#tabela_resultados td.coluna-serie {
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+    line-height: 1.25;
+}
+
+#tabela_resultados th.coluna-empresa,
+#tabela_resultados td.coluna-empresa {
+    word-break: break-word;
 }
 
 .table-wrap tbody tr.linha-grupo td {
