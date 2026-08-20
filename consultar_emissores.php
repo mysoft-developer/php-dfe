@@ -7,6 +7,29 @@ date_default_timezone_set('America/Sao_Paulo');
 @ini_set('default_socket_timeout', '600');
 mysqli_report(MYSQLI_REPORT_OFF);
 
+if ((isset($_GET['ajax_grupos']) && (string)$_GET['ajax_grupos'] === '1') ||
+    (isset($_GET['ajax_consultar']) && (string)$_GET['ajax_consultar'] === '1')) {
+    ob_start();
+    register_shutdown_function(function () {
+        $erro = error_get_last();
+        $tiposFatais = E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR | E_USER_ERROR;
+
+        if ($erro && (($erro['type'] ?? 0) & $tiposFatais)) {
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+
+            error_log('Falha fatal no endpoint Ajax consultar_emissores.php: ' . ($erro['message'] ?? ''));
+            http_response_code(500);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(array(
+                'ok' => false,
+                'mensagensErro' => array('Erro interno durante a consulta Ajax.')
+            ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+    });
+}
+
 $hostMysqlCentral = '10.8.0.6';
 $portaMysqlCentral = 3306;
 $bancoMysqlCentral = 'mysoft';
@@ -167,9 +190,6 @@ function conectarMysql($host, $usuario, $senha, $banco, $porta)
     }
 
     if (!$conn || $conn->connect_errno) {
-        if ($conn instanceof mysqli) {
-            $conn->close();
-        }
         return false;
     }
 
@@ -851,6 +871,17 @@ function preencherSelect(selectId, valores, valorInicial, textoTodos) {
     select.innerHTML = html;
 }
 
+function lerJsonResposta(resposta) {
+    return resposta.text().then(function(texto) {
+        try {
+            return JSON.parse(texto);
+        } catch (erro) {
+            var trecho = String(texto || '').replace(/\s+/g, ' ').trim().substring(0, 240);
+            throw new Error('Resposta inválida do servidor' + (trecho ? ': ' + trecho : '.'));
+        }
+    });
+}
+
 function carregarGruposAssincrono() {
     return fetch('consultar_emissores.php?ajax_grupos=1', {
         method: 'GET',
@@ -858,10 +889,14 @@ function carregarGruposAssincrono() {
         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
     })
         .then(function(resposta) {
-            if (!resposta.ok) {
-                throw new Error('Falha HTTP ao carregar grupos');
-            }
-            return resposta.json();
+            return lerJsonResposta(resposta).then(function(payload) {
+                if (!resposta.ok) {
+                    throw new Error(payload && payload.mensagensErro && payload.mensagensErro.length
+                        ? String(payload.mensagensErro[0])
+                        : 'Falha HTTP ao carregar grupos');
+                }
+                return payload;
+            });
         })
         .then(function(payload) {
             if (!payload || payload.ok !== true || !Array.isArray(payload.grupos)) {
@@ -1039,10 +1074,14 @@ function executarConsultaGrupo(grupo) {
         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
     })
         .then(function(resposta) {
-            if (!resposta.ok) {
-                throw new Error('Falha HTTP ao consultar emissores');
-            }
-            return resposta.json();
+            return lerJsonResposta(resposta).then(function(payload) {
+                if (!resposta.ok) {
+                    throw new Error(payload && payload.mensagensErro && payload.mensagensErro.length
+                        ? String(payload.mensagensErro[0])
+                        : 'Falha HTTP ao consultar emissores');
+                }
+                return payload;
+            });
         })
         .then(function(payload) {
             if (!payload || !Array.isArray(payload.resultados)) {
