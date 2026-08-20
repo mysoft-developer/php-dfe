@@ -1,0 +1,21 @@
+php-dfe/
+├── AGENTS.md
+├── opencode.json
+├── README-OPENCODE.md
+├── prompts/
+│   ├── plan.txt
+│   ├── build.txt
+│   └── review.txt
+├── scripts/
+│   ├── check-environment.ps1
+│   └── check-php.ps1
+└── .opencode/
+    ├── commands/
+    │   ├── ambiente.md
+    │   ├── planejar.md
+    │   ├── implementar.md
+    │   ├── validar-php.md
+    │   └── revisar.md
+    └── skills/
+        └── php-dfe/
+            └── SKILL.md

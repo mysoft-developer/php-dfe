@@ -2,7 +2,7 @@
     "mysql_usuario": "mysoftweb",
     "mysql_senha": "g3108f88",
     "autonfe": {
-        "windows": "C:\\developer\\lazarus-autonfe-2.6\\autonfe.exe",
+        "windows": "D:\\developer\\lazarus-autonfe-2.6\\autonfe.exe",
         "linux": "/home/ubuntu/nfe/autonfe_lnx",
         "linux_arm": "/home/gerson/nfe/autonfe_arm"
     },

@@ -133,6 +133,7 @@ function carregarServidoresTabela(): array
             porta,
             `database`
         FROM `servidores`
+        WHERE ativo = 'S'
         ORDER BY grupo, nome, `database`, endereco, porta
     ";
 

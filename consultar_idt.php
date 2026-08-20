@@ -119,7 +119,7 @@ function carregarGrupos($host, $porta, $banco, $usuario, $senha)
         return array($grupos, 'Não foi possível conectar na base central de servidores.');
     }
 
-    $sql = 'select grupo from servidores where ifnull(trim(grupo), "") <> "" group by grupo order by grupo';
+    $sql = 'select grupo from servidores where ativo = "S" and ifnull(trim(grupo), "") <> "" group by grupo order by grupo';
     $resultado = $conn->query($sql);
 
     if ($resultado === false) {
@@ -154,6 +154,7 @@ function carregarServidoresPorGrupo($host, $porta, $banco, $usuario, $senha, $gr
     $sql = 'select nome, grupo, endereco, porta, `database` '
          . 'from servidores '
          . 'where grupo = ? '
+         . 'and ativo = "S" '
          . 'order by nome, `database`, endereco, porta';
 
     $stmt = $conn->prepare($sql);
