@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="titulo descricao">
+  <title id="titulo">Correção de nota fiscal eletrônica</title>
+  <desc id="descricao">Documento fiscal com símbolo de correção</desc>
+  <defs>
+    <linearGradient id="fundo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3984df"/>
+      <stop offset="1" stop-color="#24538a"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="88" height="88" rx="22" fill="url(#fundo)"/>
+  <path d="M27 18h29l14 14v42H27z" fill="#fff" opacity=".96"/>
+  <path d="M56 18v15h14" fill="none" stroke="#cfe2fa" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M35 44h25M35 53h16" fill="none" stroke="#6b8fb8" stroke-width="4" stroke-linecap="round"/>
+  <path d="m57 61 7-7 9 9-7 7-9 2z" fill="#ffd166" stroke="#a66b16" stroke-width="2" stroke-linejoin="round"/>
+  <path d="m64 54 3-3a4 4 0 0 1 6 0l2 2-5 5z" fill="#ffd166" stroke="#a66b16" stroke-width="2" stroke-linejoin="round"/>
+  <path d="m58 72-3 2 1-4z" fill="#a66b16"/>
+</svg>
