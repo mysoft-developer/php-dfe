@@ -518,14 +518,14 @@ function prepararRequisicaoWrapper(array $configuracao, array $servidor, string 
     ];
 }
 
-function interpretarRespostaWrapper(string $corpo, int $codigoHttp, string $erroCurl, string $idt, string $acao): array
+function interpretarRespostaWrapper(string $corpo, int $codigoHttp, string $erroCurl, string $idt, string $acao, int $indiceServidor): array
 {
     if ($erroCurl !== '') {
-        return ['idt' => $idt, 'acao' => $acao, 'codigo_retorno' => -1, 'saida' => $erroCurl];
+        return ['i' => $indiceServidor, 'idt' => $idt, 'acao' => $acao, 'codigo_retorno' => -1, 'saida' => $erroCurl];
     }
     $dados = json_decode($corpo, true);
     if (!is_array($dados)) {
-        return ['idt' => $idt, 'acao' => $acao, 'codigo_retorno' => -1, 'saida' => 'Resposta inválida do wrapper (HTTP ' . $codigoHttp . ').'];
+        return ['i' => $indiceServidor, 'idt' => $idt, 'acao' => $acao, 'codigo_retorno' => -1, 'saida' => 'Resposta inválida do wrapper (HTTP ' . $codigoHttp . ').'];
     }
     $sucesso = !empty($dados['sucesso']) && $codigoHttp >= 200 && $codigoHttp < 300;
     $mensagens = [];
@@ -534,12 +534,18 @@ function interpretarRespostaWrapper(string $corpo, int $codigoHttp, string $erro
             $mensagens[] = trim((string) $dados[$campo]);
         }
     }
-    return [
+    $resultado = [
+        'i' => $indiceServidor,
         'idt' => $idt,
         'acao' => $acao,
         'codigo_retorno' => $sucesso ? 0 : (isset($dados['codigo']) && (int) $dados['codigo'] !== 0 ? (int) $dados['codigo'] : -1),
         'saida' => implode("\n", $mensagens)
     ];
+    if (isset($dados['retorno']) && is_array($dados['retorno'])) {
+        unset($dados['retorno']['xml']);
+        $resultado['retorno'] = $dados['retorno'];
+    }
+    return $resultado;
 }
 
 function executarAcoesWrapperConcorrentes(array $configuracao, array $servidores, array $linhas, string $acao): array
@@ -564,11 +570,15 @@ function executarAcoesWrapperConcorrentes(array $configuracao, array $servidores
                     if (!isset($servidores[$indice])) {
                         throw new RuntimeException('Servidor inválido.');
                     }
+                    $acaoExecutada = $acao;
+                    if ($acao === 'acerto_w' && (string) ($linha['modelo'] ?? '') === '55') {
+                        $acaoExecutada = 'acerto_v';
+                    }
                     $requisicao = prepararRequisicaoWrapper(
                         $configuracao,
                         $servidores[$indice],
                         $idt,
-                        $acao,
+                        $acaoExecutada,
                         (string) ($linha['modelo'] ?? '')
                     );
                     $curl = curl_init($requisicao['url']);
@@ -583,13 +593,15 @@ function executarAcoesWrapperConcorrentes(array $configuracao, array $servidores
                     curl_multi_add_handle($multi, $curl);
                     $ativos[spl_object_id($curl)] = [
                         'curl' => $curl,
+                        'i' => $indice,
                         'idt' => $idt,
-                        'acao' => $acao
+                        'acao' => $acaoExecutada
                     ];
                 } catch (Throwable $e) {
                     $resultados[] = [
                         'idt' => (string) ($linha['idt'] ?? ''),
-                        'acao' => $acao,
+                        'i' => (int) ($linha['i'] ?? -1),
+                        'acao' => $acaoExecutada ?? $acao,
                         'codigo_retorno' => -1,
                         'saida' => $e->getMessage()
                     ];
@@ -616,7 +628,8 @@ function executarAcoesWrapperConcorrentes(array $configuracao, array $servidores
                     (int) curl_getinfo($curl, CURLINFO_HTTP_CODE),
                     (string) curl_error($curl),
                     $ativo['idt'],
-                    $ativo['acao']
+                    $ativo['acao'],
+                    $ativo['i']
                 );
                 curl_multi_remove_handle($multi, $curl);
                 curl_close($curl);
@@ -841,8 +854,8 @@ async function consultar(){CONSULTA_EM_ANDAMENTO=true;bloquearAcoesDuranteConsul
 function marcarTodos(valor){if(ACOES_EM_ANDAMENTO)return;filtradas().forEach(function(x){var k=chave(x);if(valor)SELECIONADAS.add(k);else SELECIONADAS.delete(k);});var topo=document.getElementById('checkTopo');if(topo)topo.checked=!!valor;render();}
 function limparSelecao(){SELECIONADAS.clear();var topo=document.getElementById('checkTopo');if(topo)topo.checked=false;render();}
  function renderizarAcoesAtivas(linhas,acao){var painel=document.getElementById('resultadoAcoes');var corpo=document.getElementById('resultadoAcoesBody');if(!painel||!corpo)return;linhas=Array.isArray(linhas)?linhas:[];var html='';for(var i=0;i<linhas.length;i+=2){var primeira=linhas[i],segunda=linhas[i+1];html+='<tr><td>'+esc(primeira.idt||'')+'</td><td>'+esc(acao||'')+'</td><td>'+(segunda?esc(segunda.idt||''):'')+'</td><td>'+(segunda?esc(acao||''):'')+'</td></tr>';}corpo.innerHTML=html;painel.style.display=linhas.length?'block':'none';}
-async function atualizarNotasExecutadas(selecionadas){var grupos={};selecionadas.forEach(function(x){var indice=String(x.i||'');if(!grupos[indice])grupos[indice]=[];if(grupos[indice].indexOf(String(x.idt||''))<0)grupos[indice].push(String(x.idt||''));});var atualizacoes={},removidas={};var terminais=['100','101','102','150','155'];for(var indice in grupos){if(!Object.prototype.hasOwnProperty.call(grupos,indice))continue;var url='consultar_notas_todos_servidores.php?ajax=1&i='+encodeURIComponent(indice)+'&idts='+encodeURIComponent(JSON.stringify(grupos[indice]));var resposta=await fetch(url,{cache:'no-store',headers:{Accept:'application/json'}});var dados=await resposta.json();if(!dados.ok)continue;(dados.linhas||[]).forEach(function(nota){var atual=LINHAS.find(function(x){return String(x.i)===String(indice)&&String(x.idt)===String(nota.idt);});if(!atual)return;var atualizada=Object.assign({},atual,nota);if(terminais.indexOf(String(nota.status||''))!==-1)removidas[chave(atual)]=true;else atualizacoes[chave(atual)]=atualizada;});}LINHAS=LINHAS.filter(function(x){return !removidas[chave(x)];}).map(function(x){return atualizacoes[chave(x)]||x;});deduplicarLinhas();render();}
- function executar(acao){if(CONSULTA_EM_ANDAMENTO||ACOES_EM_ANDAMENTO)return false;if(!SELECIONADAS.size){alert('Selecione pelo menos uma nota.');return false;}var selecionadas=LINHAS.filter(function(x){return SELECIONADAS.has(chave(x));});var tudoOk=true;ACOES_EM_ANDAMENTO=true;bloquearSelecaoDuranteAcoes(true);status('Preparando '+selecionadas.length+' nota(s), em lotes de até 10 simultâneas...','andamento');document.querySelectorAll('.actions-panel button').forEach(function(b){b.disabled=true;});(async function(){try{for(var inicio=0;inicio<selecionadas.length;inicio+=10){var lote=selecionadas.slice(inicio,inicio+10);var pendentes=selecionadas.slice(inicio);renderizarAcoesAtivas(lote,acao);status('Executando '+acao+': lote '+(Math.floor(inicio/10)+1)+' | '+lote.length+' nota(s) simultâneas.','andamento');var resposta=await fetch('consultar_notas_todos_servidores.php',{method:'POST',body:new URLSearchParams({ajax_action:'1',acao:acao,linhas:JSON.stringify(lote)}),headers:{Accept:'application/json'}});var dados=await resposta.json();if(!dados.ok){tudoOk=false;status('Falha ao executar '+acao+': '+(dados.erro||'erro não informado.'),'erro');}(dados.resultados||[]).forEach(function(resultado){if(Number(resultado.codigo_retorno||-1)!==0)tudoOk=false;});renderizarAcoesAtivas(pendentes.slice(lote.length),acao);}status('Atualizando somente os IDTs executados...','andamento');await atualizarNotasExecutadas(selecionadas);limparSelecao();renderizarAcoesAtivas([],acao);status('Ação '+acao+' concluída para '+selecionadas.length+' nota(s).',tudoOk?'ok':'erro');}catch(e){limparSelecao();renderizarAcoesAtivas([],acao);status('Erro ao executar a ação: '+(e.message||'erro não informado.'),'erro');}finally{ACOES_EM_ANDAMENTO=false;bloquearSelecaoDuranteAcoes(false);document.querySelectorAll('.actions-panel button').forEach(function(b){b.disabled=false;});}})();return false;}
+ function atualizarNotasComRetornos(resultados){var atualizacoes={},removidas={};var terminais=['100','101','102','150','155'];(resultados||[]).forEach(function(resultado){var retorno=resultado&&resultado.retorno;if(!retorno||retorno.idt==null)return;var atual=LINHAS.find(function(x){return String(x.i)===String(resultado.i)&&String(x.idt)===String(retorno.idt);});if(!atual)return;var atualizada=Object.assign({},atual);if(retorno.chave!=null)atualizada.chave=String(retorno.chave);if(retorno.origem!=null)atualizada.origem=String(retorno.origem);if(retorno.status!=null)atualizada.status=String(retorno.status);if(retorno.status_descricao!=null)atualizada.descricao=String(retorno.status_descricao);if(retorno.cancelamento!==undefined)atualizada.cancelado=retorno.cancelamento==null?'':String(retorno.cancelamento);if(terminais.indexOf(String(atualizada.status||''))!==-1)removidas[chave(atual)]=true;else atualizacoes[chave(atual)]=atualizada;});LINHAS=LINHAS.filter(function(x){return !removidas[chave(x)];}).map(function(x){return atualizacoes[chave(x)]||x;});deduplicarLinhas();render();}
+ function executar(acao){if(CONSULTA_EM_ANDAMENTO||ACOES_EM_ANDAMENTO)return false;if(!SELECIONADAS.size){alert('Selecione pelo menos uma nota.');return false;}var selecionadas=LINHAS.filter(function(x){return SELECIONADAS.has(chave(x));});var tudoOk=true;ACOES_EM_ANDAMENTO=true;bloquearSelecaoDuranteAcoes(true);status('Preparando '+selecionadas.length+' nota(s), em lotes de até 10 simultâneas...','andamento');document.querySelectorAll('.actions-panel button').forEach(function(b){b.disabled=true;});(async function(){try{for(var inicio=0;inicio<selecionadas.length;inicio+=10){var lote=selecionadas.slice(inicio,inicio+10);var pendentes=selecionadas.slice(inicio);renderizarAcoesAtivas(lote,acao);status('Executando '+acao+': lote '+(Math.floor(inicio/10)+1)+' | '+lote.length+' nota(s) simultâneas.','andamento');var resposta=await fetch('consultar_notas_todos_servidores.php',{method:'POST',body:new URLSearchParams({ajax_action:'1',acao:acao,linhas:JSON.stringify(lote)}),headers:{Accept:'application/json'}});var dados=await resposta.json();if(!dados.ok){tudoOk=false;status('Falha ao executar '+acao+': '+(dados.erro||'erro não informado.'),'erro');}(dados.resultados||[]).forEach(function(resultado){if(Number(resultado.codigo_retorno||-1)!==0)tudoOk=false;});atualizarNotasComRetornos(dados.resultados||[]);renderizarAcoesAtivas(pendentes.slice(lote.length),acao);}limparSelecao();renderizarAcoesAtivas([],acao);status('Ação '+acao+' concluída para '+selecionadas.length+' nota(s).',tudoOk?'ok':'erro');}catch(e){limparSelecao();renderizarAcoesAtivas([],acao);status('Erro ao executar a ação: '+(e.message||'erro não informado.'),'erro');}finally{ACOES_EM_ANDAMENTO=false;bloquearSelecaoDuranteAcoes(false);document.querySelectorAll('.actions-panel button').forEach(function(b){b.disabled=false;});}})();return false;}
 window.addEventListener('change',function(e){if(!e.target.classList.contains('check-nota'))return;if(ACOES_EM_ANDAMENTO){e.target.checked=!e.target.checked;return;}var k=e.target.getAttribute('data-chave');if(e.target.checked)SELECIONADAS.add(k);else SELECIONADAS.delete(k);atualizarContadores();});
 window.addEventListener('DOMContentLoaded',function(){document.getElementById('checkTopo').addEventListener('change',function(){marcarTodos(this.checked);});if(EXECUTAR_CONSULTA){var url=new URL(window.location.href);url.searchParams.delete('consultar');window.history.replaceState({},document.title,url.toString());consultar();}});
 </script>
