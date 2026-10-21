@@ -72,6 +72,8 @@ if (!$autenticado) {
     exit;
 }
 
+session_write_close();
+
 set_time_limit(0);
 ini_set('max_execution_time', '0');
 ignore_user_abort(true);
@@ -107,7 +109,7 @@ function conectar(string $host, string $usuario, string $senha, int $porta, stri
     if ($conexao === false) {
         return false;
     }
-    @mysqli_options($conexao, MYSQLI_OPT_CONNECT_TIMEOUT, 120);
+    @mysqli_options($conexao, MYSQLI_OPT_CONNECT_TIMEOUT, 60);
     @mysqli_options($conexao, MYSQLI_OPT_READ_TIMEOUT, 600);
     if (!@mysqli_real_connect($conexao, $host, $usuario, $senha, $database, $porta)) {
         @mysqli_close($conexao);
@@ -284,6 +286,27 @@ function montarComando(string $executavel, string $modelo, string $idt, string $
     return '"' . trim($executavel, '"') . '" 0 ' . implode(' ', $valores);
 }
 
+function obterCaminhoAutonfe(array $configuracao): string
+{
+    $caminhos = isset($configuracao['autonfe']) && is_array($configuracao['autonfe'])
+        ? $configuracao['autonfe']
+        : [];
+
+    if (PHP_OS_FAMILY === 'Windows') {
+        return trim((string) ($caminhos['windows'] ?? ''));
+    }
+
+    if (PHP_OS_FAMILY === 'Linux') {
+        $maquina = strtolower((string) php_uname('m'));
+        $chave = (strpos($maquina, 'arm') !== false || strpos($maquina, 'aarch64') !== false)
+            ? 'linux_arm'
+            : 'linux';
+        return trim((string) ($caminhos[$chave] ?? ''));
+    }
+
+    return '';
+}
+
 function prepararExecucaoAcao(array $configuracao, array $servidor, string $idt, string $modelo, string $acao): array
 {
     $permitidas = ['consultarX', 'validarX', 'acerto_w', 'acerto_v', 'enviarX', 'cancelarX', 'inutilizarX', 'removercancelamento'];
@@ -294,9 +317,13 @@ function prepararExecucaoAcao(array $configuracao, array $servidor, string $idt,
     if ($acao === 'acerto_w' && $modelo === '55') {
         throw new RuntimeException('Ação Offline não permitida para notas do modelo 55.');
     }
-    $executavel = trim((string) (($configuracao['autonfe']['windows'] ?? '') ?: ($configuracao['autonfe']['linux'] ?? '')));
-    if ($executavel === '' || !is_file(trim($executavel, '"'))) {
+    $executavel = obterCaminhoAutonfe($configuracao);
+    $caminhoExecutavel = trim($executavel, '"');
+    if ($caminhoExecutavel === '' || !is_file($caminhoExecutavel)) {
         throw new RuntimeException('Executável do AutoNFe não encontrado no config.json.');
+    }
+    if (PHP_OS_FAMILY !== 'Windows' && !is_executable($caminhoExecutavel)) {
+        throw new RuntimeException('Executável do AutoNFe sem permissão de execução: ' . $caminhoExecutavel);
     }
     $versaoMysql = 5;
     foreach (($configuracao['servidores'] ?? []) as $item) {
@@ -447,6 +474,166 @@ function executarAcoesConcorrentes(array $configuracao, array $servidores, array
     return $resultados;
 }
 
+function obterOperacaoWrapper(string $acao): string
+{
+    $operacoes = [
+        'consultarX' => 'consultar',
+        'enviarX' => 'enviar',
+        'cancelarX' => 'cancelar',
+        'inutilizarX' => 'inutilizar',
+        'removercancelamento' => 'cancelarinutilizar',
+        'acerto_w' => 'gerar',
+        'acerto_v' => 'gerar'
+    ];
+    if (!isset($operacoes[$acao])) {
+        throw new RuntimeException('Ação inválida.');
+    }
+    return $operacoes[$acao];
+}
+
+function prepararRequisicaoWrapper(array $configuracao, array $servidor, string $idt, string $acao, string $modelo): array
+{
+    if (!function_exists('curl_init')) {
+        throw new RuntimeException('A extensão cURL não está habilitada no PHP.');
+    }
+    if (preg_match('/^[0-9]+$/', $idt) !== 1 || $idt === '0') {
+        throw new RuntimeException('IDT inválido para o wrapper.');
+    }
+    if ($acao === 'acerto_w' && $modelo === '55') {
+        throw new RuntimeException('Ação Offline não permitida para notas do modelo 55.');
+    }
+    $url = trim((string) ($configuracao['autonfe_wrapper_url'] ?? ''));
+    if ($url === '') {
+        throw new RuntimeException('URL do wrapper não configurada no config.json.');
+    }
+    return [
+        'url' => $url,
+        'payload' => json_encode([
+            'idt' => $idt,
+            'host' => (string) ($servidor['endereco'] ?? ''),
+            'banco' => (string) ($servidor['database'] ?? ''),
+            'porta' => (string) ($servidor['porta'] ?? 3306),
+            'operacao' => obterOperacaoWrapper($acao)
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)
+    ];
+}
+
+function interpretarRespostaWrapper(string $corpo, int $codigoHttp, string $erroCurl, string $idt, string $acao): array
+{
+    if ($erroCurl !== '') {
+        return ['idt' => $idt, 'acao' => $acao, 'codigo_retorno' => -1, 'saida' => $erroCurl];
+    }
+    $dados = json_decode($corpo, true);
+    if (!is_array($dados)) {
+        return ['idt' => $idt, 'acao' => $acao, 'codigo_retorno' => -1, 'saida' => 'Resposta inválida do wrapper (HTTP ' . $codigoHttp . ').'];
+    }
+    $sucesso = !empty($dados['sucesso']) && $codigoHttp >= 200 && $codigoHttp < 300;
+    $mensagens = [];
+    foreach (['mensagem', 'saida', 'erro_processo'] as $campo) {
+        if (isset($dados[$campo]) && trim((string) $dados[$campo]) !== '') {
+            $mensagens[] = trim((string) $dados[$campo]);
+        }
+    }
+    return [
+        'idt' => $idt,
+        'acao' => $acao,
+        'codigo_retorno' => $sucesso ? 0 : (isset($dados['codigo']) && (int) $dados['codigo'] !== 0 ? (int) $dados['codigo'] : -1),
+        'saida' => implode("\n", $mensagens)
+    ];
+}
+
+function executarAcoesWrapperConcorrentes(array $configuracao, array $servidores, array $linhas, string $acao): array
+{
+    if (!function_exists('curl_multi_init')) {
+        throw new RuntimeException('A extensão cURL não está habilitada no PHP.');
+    }
+    $maximoParalelo = 10;
+    $fila = array_values($linhas);
+    $indiceFila = 0;
+    $ativos = [];
+    $resultados = [];
+    $multi = curl_multi_init();
+
+    try {
+        while ($indiceFila < count($fila) || count($ativos) > 0) {
+            while ($indiceFila < count($fila) && count($ativos) < $maximoParalelo) {
+                $linha = $fila[$indiceFila++];
+                try {
+                    $indice = (int) ($linha['i'] ?? -1);
+                    $idt = trim((string) ($linha['idt'] ?? ''));
+                    if (!isset($servidores[$indice])) {
+                        throw new RuntimeException('Servidor inválido.');
+                    }
+                    $requisicao = prepararRequisicaoWrapper(
+                        $configuracao,
+                        $servidores[$indice],
+                        $idt,
+                        $acao,
+                        (string) ($linha['modelo'] ?? '')
+                    );
+                    $curl = curl_init($requisicao['url']);
+                    curl_setopt_array($curl, [
+                        CURLOPT_POST => true,
+                        CURLOPT_POSTFIELDS => $requisicao['payload'],
+                        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json'],
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_CONNECTTIMEOUT => 30,
+                        CURLOPT_TIMEOUT => 900
+                    ]);
+                    curl_multi_add_handle($multi, $curl);
+                    $ativos[spl_object_id($curl)] = [
+                        'curl' => $curl,
+                        'idt' => $idt,
+                        'acao' => $acao
+                    ];
+                } catch (Throwable $e) {
+                    $resultados[] = [
+                        'idt' => (string) ($linha['idt'] ?? ''),
+                        'acao' => $acao,
+                        'codigo_retorno' => -1,
+                        'saida' => $e->getMessage()
+                    ];
+                }
+            }
+
+            do {
+                $status = curl_multi_exec($multi, $executando);
+            } while ($status === CURLM_CALL_MULTI_PERFORM);
+
+            if ($executando > 0) {
+                $selecionado = curl_multi_select($multi, 1.0);
+                if ($selecionado === -1) {
+                    usleep(100000);
+                }
+            }
+
+            while ($informacao = curl_multi_info_read($multi)) {
+                $curl = $informacao['handle'];
+                $chave = spl_object_id($curl);
+                $ativo = $ativos[$chave];
+                $resultados[] = interpretarRespostaWrapper(
+                    (string) curl_multi_getcontent($curl),
+                    (int) curl_getinfo($curl, CURLINFO_HTTP_CODE),
+                    (string) curl_error($curl),
+                    $ativo['idt'],
+                    $ativo['acao']
+                );
+                curl_multi_remove_handle($multi, $curl);
+                curl_close($curl);
+                unset($ativos[$chave]);
+            }
+        }
+    } finally {
+        foreach ($ativos as $ativo) {
+            curl_multi_remove_handle($multi, $ativo['curl']);
+            curl_close($ativo['curl']);
+        }
+        curl_multi_close($multi);
+    }
+
+    return $resultados;
+}
+
 mysqli_report(MYSQLI_REPORT_OFF);
 $configuracao = lerConfiguracao();
 $servidores = carregarServidores();
@@ -493,7 +680,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['ajax_action'] ?? 
     if (!is_array($linhas) || count($linhas) === 0) {
         responderJson(['ok' => false, 'erro' => 'Selecione pelo menos uma nota.'], 400);
     }
-    $resultados = executarAcoesConcorrentes($configuracao, $servidores, $linhas, $acao);
+    $resultados = executarAcoesWrapperConcorrentes($configuracao, $servidores, $linhas, $acao);
     $acaoOk = true;
     foreach ($resultados as $resultado) {
         if ((int) ($resultado['codigo_retorno'] ?? -1) !== 0) {
@@ -623,7 +810,7 @@ var EXECUTAR_CONSULTA = <?= $executarConsulta ? 'true' : 'false' ?>;
 var LINHAS = [];
 var SELECIONADAS = new Set();
 var CONCORRENCIA = 15;
-var FILTROS = { descricao:'', status:'', operacao:'', modelo:'', origem:'' };
+ var FILTROS = { descricao:'', status:'', operacao:'', modelo:'', origem:'', canceladas:false };
 var CONSULTA_INTERROMPIDA = false;
 var CONSULTA_EM_ANDAMENTO = false;
 var ACOES_EM_ANDAMENTO = false;
@@ -635,20 +822,22 @@ function chave(x){return [x.grupo,x.idt,x.origem,x.serie,x.modelo].map(function(
  function texto(v){return String(v==null?'':v).toLowerCase();}
  function formatarDataBrasileira(v){var valor=String(v==null?'':v).trim(),partes=valor.match(/^(\d{4})-(\d{2})-(\d{2})/);if(partes)return partes[3]+'/'+partes[2]+'/'+partes[1];partes=valor.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})/);return partes?partes[1]+'/'+partes[2]+'/'+partes[3]:valor;}
 function compararTexto(a,b){return String(a==null?'':a).localeCompare(String(b==null?'':b),'pt-BR',{numeric:true,sensitivity:'base'});}
-function filtradas(){var linhas=LINHAS.filter(function(x){return (!FILTROS.descricao||texto(x.descricao).indexOf(texto(FILTROS.descricao))!==-1)&&(!FILTROS.status||String(x.status||'')===FILTROS.status)&&(!FILTROS.operacao||texto(x.operacao)===texto(FILTROS.operacao))&&(!FILTROS.modelo||String(x.modelo||'')===FILTROS.modelo)&&(!FILTROS.origem||String(x.origem||'')===FILTROS.origem);});linhas.sort(function(a,b){var resultado=compararTexto(a.status,b.status);if(resultado!==0)return resultado;resultado=compararTexto(a.descricao,b.descricao);if(resultado!==0)return resultado;resultado=compararTexto(a.operacao,b.operacao);if(resultado!==0)return resultado;return compararTexto(a.grupo,b.grupo);});return linhas;}
+ function temCancelamento(valor){var data=String(valor==null?'':valor).trim();return data!==''&&data.indexOf('0000-00-00')!==0&&data.indexOf('00/00/0000')!==0;}
+ function filtradas(){var linhas=LINHAS.filter(function(x){return (!FILTROS.descricao||texto(x.descricao).indexOf(texto(FILTROS.descricao))!==-1)&&(!FILTROS.status||String(x.status||'')===FILTROS.status)&&(!FILTROS.operacao||texto(x.operacao)===texto(FILTROS.operacao))&&(!FILTROS.modelo||String(x.modelo||'')===FILTROS.modelo)&&(!FILTROS.origem||String(x.origem||'')===FILTROS.origem)&&(!FILTROS.canceladas||temCancelamento(x.cancelado));});linhas.sort(function(a,b){var resultado=compararTexto(a.status,b.status);if(resultado!==0)return resultado;resultado=compararTexto(a.descricao,b.descricao);if(resultado!==0)return resultado;resultado=compararTexto(a.operacao,b.operacao);if(resultado!==0)return resultado;return compararTexto(a.grupo,b.grupo);});return linhas;}
 function montarDataHoraNota(item){var emissao=String((item&&item.emissao)||'').trim(),hora=String((item&&item.hora)||'').trim();if(!emissao)return null;var partes=emissao.indexOf('-')!==-1?emissao.split('-'):emissao.split('/');if(partes.length<3)return null;var ano,mes,dia;if(String(partes[0]).length===4){ano=parseInt(partes[0],10);mes=parseInt(partes[1],10);dia=parseInt(partes[2],10);}else{dia=parseInt(partes[0],10);mes=parseInt(partes[1],10);ano=parseInt(partes[2],10);}if(!ano||!mes||!dia)return null;var hp=hora.split(':'),h=parseInt(hp[0]||'0',10),m=parseInt(hp[1]||'0',10),s=parseInt(hp[2]||'0',10),data=new Date(ano,mes-1,dia,isNaN(h)?0:h,isNaN(m)?0:m,isNaN(s)?0:s);return isNaN(data.getTime())?null:data;}
 function montarClasseLinha(item){var classes=[];if(String(item.modelo||'')==='65')classes.push('linha-modelo-65');var dataHora=montarDataHoraNota(item);if(dataHora&&Math.abs(Date.now()-dataHora.getTime())<=(10*60*1000))classes.push('linha-alerta-horario');if(item.destacar_vermelho)classes.push('linha-problema');return classes.join(' ');}
 function deduplicarLinhas(){var vistos={};LINHAS=LINHAS.filter(function(x){var k=chave(x);if(vistos[k])return false;vistos[k]=true;return true;});}
 function atualizarContadores(){var vis=filtradas(); document.getElementById('totalNotas').textContent=LINHAS.length; document.getElementById('totalVisiveis').textContent=vis.length; document.getElementById('totalSelecionadas').textContent=SELECIONADAS.size;}
  function render(){var corpo=document.getElementById('corpoNotas'), linhas=filtradas(), html=''; linhas.forEach(function(x){var k=chave(x), checked=SELECIONADAS.has(k)?' checked':''; html+='<tr class="'+esc(montarClasseLinha(x))+'"><td class="col-selecao"><input class="check-nota" type="checkbox" data-chave="'+esc(k)+'"'+checked+'></td><td class="col-grupo">'+esc(x.grupo)+'</td><td class="col-servidor">'+esc(x.endereco)+'</td><td class="col-database">'+esc(x.database)+'</td><td class="col-idt">'+esc(x.idt)+'</td><td>'+esc(formatarDataBrasileira(x.cancelado))+'</td><td class="col-emissao">'+esc(formatarDataBrasileira(x.emissao))+'</td><td>'+esc(x.hora)+'</td><td>'+esc(x.nota)+'</td><td>'+esc(x.serie)+'</td><td>'+esc(x.modelo)+'</td><td>'+esc(x.origem)+'</td><td class="col-chave">'+esc(x.chave)+'</td><td>'+esc(x.operacao)+'</td><td>'+esc(x.status)+'</td><td class="col-descricao">'+esc(x.descricao)+'</td></tr>';}); corpo.innerHTML=html; atualizarContadores(); document.getElementById('mensagemVazia').style.display=linhas.length?'none':'flex';bloquearSelecaoDuranteAcoes(ACOES_EM_ANDAMENTO);}
 function status(t,c){var painel=document.querySelector('.status-consulta');if(painel){painel.classList.remove('status-ok','status-erro','status-andamento');painel.classList.add(c==='erro'?'status-erro':(c==='andamento'?'status-andamento':'status-ok'));}var s=document.getElementById('statusExecucao');if(s){s.textContent=t;s.classList.remove('status-mensagem-atualizada');void s.offsetWidth;s.classList.add('status-mensagem-atualizada');}var cardInterromper=document.getElementById('cardInterromper'),botaoInterromper=document.getElementById('botaoInterromper'),interromperAtivo=c==='andamento'&&CONSULTA_EM_ANDAMENTO;if(cardInterromper)cardInterromper.style.display='flex';if(botaoInterromper){botaoInterromper.disabled=!interromperAtivo;botaoInterromper.classList.toggle('interromper-ativo',interromperAtivo);}var e=document.getElementById('mensagemExecucaoBox');e.textContent=t;e.className='status-message '+(c||'ok');e.style.display=t?'block':'none';}
-function alternarCardAguarde(visivel){var card=document.getElementById('cardAguardeConsulta');if(card)card.style.display=visivel?'flex':'none';}
+ function alternarCardAguarde(visivel){var card=document.getElementById('cardAguardeConsulta');if(card)card.style.display=visivel?'flex':'none';var painel=card?card.closest('.info-panel'):null;if(painel)painel.classList.toggle('aguarde-ativo',visivel);}
 function bloquearAcoesDuranteConsulta(bloquear){document.querySelectorAll('.actions-panel button').forEach(function(botao){botao.disabled=bloquear;botao.classList.toggle('botao-desabilitado',bloquear);});}
 function bloquearSelecaoDuranteAcoes(bloquear){document.querySelectorAll('.check-nota, #checkTopo').forEach(function(checkbox){checkbox.disabled=bloquear;});document.querySelectorAll('.all-server-table .check-actions .check-link').forEach(function(link){link.style.pointerEvents=bloquear?'none':'';link.style.opacity=bloquear?'0.45':'';});}
 function carregarServidor(item){if(CONSULTA_INTERROMPIDA)return Promise.resolve(null);status('Consultando '+item.nome+' | '+item.database+'...','andamento');var controlador=typeof AbortController==='function'?new AbortController():null;if(controlador)CONTROLADORES_CONSULTA.push(controlador);var opcoes={cache:'no-store',headers:{Accept:'application/json'}};if(controlador)opcoes.signal=controlador.signal;return fetch('consultar_notas_todos_servidores.php?ajax=1&i='+encodeURIComponent(item.i)+'&data_inicio='+encodeURIComponent(DATA_INICIO)+'&data_fim='+encodeURIComponent(DATA_FIM),opcoes).then(function(r){return r.json();}).then(function(p){if(!p.ok)throw new Error(item.nome+': '+(p.erro||'erro'));LINHAS=LINHAS.filter(function(x){return String(x.i)!==String(item.i);}).concat(p.linhas||[]);deduplicarLinhas();render();CONSULTA_PROCESSADOS++;status('Servidores consultados: '+CONSULTA_PROCESSADOS+'/'+SERVIDORES.length+' | '+item.nome+' | '+p.linhas.length+' nota(s) encontrada(s).','andamento');return p;}).catch(function(e){if(e&&e.name==='AbortError')return null;CONSULTA_PROCESSADOS++;CONSULTA_ERROS++;status('Servidores consultados: '+CONSULTA_PROCESSADOS+'/'+SERVIDORES.length+' | '+(e.message||'Erro na consulta.'),'erro');return null;});}
 function interromperConsulta(){CONSULTA_INTERROMPIDA=true;CONTROLADORES_CONSULTA.forEach(function(controlador){try{controlador.abort();}catch(e){}});CONTROLADORES_CONSULTA=[];status('Consulta interrompida pelo usuário. Servidores processados: '+CONSULTA_PROCESSADOS+'/'+SERVIDORES.length+'.','erro');}
 async function consultar(){CONSULTA_EM_ANDAMENTO=true;bloquearAcoesDuranteConsulta(true);alternarCardAguarde(true);CONSULTA_INTERROMPIDA=false;CONSULTA_PROCESSADOS=0;CONSULTA_ERROS=0;CONTROLADORES_CONSULTA=[];LINHAS=[];limparSelecao();status('Preparando consulta de '+SERVIDORES.length+' servidor(es), com até '+CONCORRENCIA+' consultas simultâneas...','andamento');var fila=SERVIDORES.slice(),ativos=[];for(var i=0;i<Math.min(CONCORRENCIA,Math.max(1,fila.length));i++)ativos.push((async function(){while(fila.length&&!CONSULTA_INTERROMPIDA){var item=fila.shift();await carregarServidor(item);}})());await Promise.all(ativos);CONTROLADORES_CONSULTA=[];CONSULTA_EM_ANDAMENTO=false;bloquearAcoesDuranteConsulta(false);alternarCardAguarde(false);if(CONSULTA_INTERROMPIDA){status('Consulta interrompida pelo usuário. Servidores processados: '+CONSULTA_PROCESSADOS+'/'+SERVIDORES.length+'.','erro');return;}if(CONSULTA_ERROS>0){status('Consulta finalizada com '+CONSULTA_ERROS+' erro(s): '+CONSULTA_PROCESSADOS+' servidor(es) processado(s) e '+LINHAS.length+' nota(s) carregada(s).','erro');return;}status('Consulta finalizada: '+CONSULTA_PROCESSADOS+' servidor(es) consultado(s) e '+LINHAS.length+' nota(s) carregada(s).','ok');}
-function aplicar(id,valor){FILTROS[id]=valor;render();}
+ function aplicar(id,valor){FILTROS[id]=valor;render();}
+ function alternarSomenteCanceladas(){FILTROS.canceladas=!FILTROS.canceladas;var link=document.getElementById('filtroSomenteCanceladas');if(link)link.classList.toggle('filtro-ativo',FILTROS.canceladas);render();}
 function marcarTodos(valor){if(ACOES_EM_ANDAMENTO)return;filtradas().forEach(function(x){var k=chave(x);if(valor)SELECIONADAS.add(k);else SELECIONADAS.delete(k);});var topo=document.getElementById('checkTopo');if(topo)topo.checked=!!valor;render();}
 function limparSelecao(){SELECIONADAS.clear();var topo=document.getElementById('checkTopo');if(topo)topo.checked=false;render();}
  function renderizarAcoesAtivas(linhas,acao){var painel=document.getElementById('resultadoAcoes');var corpo=document.getElementById('resultadoAcoesBody');if(!painel||!corpo)return;linhas=Array.isArray(linhas)?linhas:[];var html='';for(var i=0;i<linhas.length;i+=2){var primeira=linhas[i],segunda=linhas[i+1];html+='<tr><td>'+esc(primeira.idt||'')+'</td><td>'+esc(acao||'')+'</td><td>'+(segunda?esc(segunda.idt||''):'')+'</td><td>'+(segunda?esc(acao||''):'')+'</td></tr>';}corpo.innerHTML=html;painel.style.display=linhas.length?'block':'none';}
@@ -672,9 +861,9 @@ window.addEventListener('DOMContentLoaded',function(){document.getElementById('c
 <div class="filter-item filtro-data"><label>Data final</label><input type="date" name="data_fim" value="<?= htmlspecialchars($dataFim, ENT_QUOTES, 'UTF-8') ?>"></div>
 <div class="filter-item botao-item"><label>&nbsp;</label><button class="botao" type="submit">Consultar</button></div>
 </form>
-<div class="filter-box" style="margin-top:14px"><div class="filter-grid-detalhes"><div class="filter-item filtro-descricao"><label>Descrição</label><input maxlength="100" oninput="aplicar('descricao',this.value)"></div><div class="filter-item operacao"><label>Operação</label><input maxlength="1" oninput="this.value=this.value.toUpperCase();aplicar('operacao',this.value)"></div><div class="filter-item status"><label>Status</label><input maxlength="3" oninput="this.value=this.value.replace(/\D/g,'');aplicar('status',this.value)"></div><div class="filter-item modelo"><label>Modelo</label><input maxlength="5" oninput="this.value=this.value.replace(/\D/g,'');aplicar('modelo',this.value)"></div><div class="filter-item origem"><label>Origem</label><input maxlength="3" oninput="this.value=this.value.replace(/\D/g,'');aplicar('origem',this.value)"></div><div class="filter-item limpar"><label>&nbsp;</label><button class="botao" type="button" onclick="document.querySelectorAll('.filter-box input').forEach(function(x){x.value='';});FILTROS={descricao:'',status:'',operacao:'',modelo:'',origem:''};render();">Limpar</button></div></div></div>
+<div class="filter-box" style="margin-top:14px"><div class="filter-grid-detalhes"><div class="filter-item filtro-descricao"><label>Descrição</label><input maxlength="100" oninput="aplicar('descricao',this.value)"></div><div class="filter-item operacao"><label>Operação</label><input maxlength="1" oninput="this.value=this.value.toUpperCase();aplicar('operacao',this.value)"></div><div class="filter-item status"><label>Status</label><input maxlength="3" oninput="this.value=this.value.replace(/\D/g,'');aplicar('status',this.value)"></div><div class="filter-item modelo"><label>Modelo</label><input maxlength="5" oninput="this.value=this.value.replace(/\D/g,'');aplicar('modelo',this.value)"></div><div class="filter-item origem"><label>Origem</label><input maxlength="3" oninput="this.value=this.value.replace(/\D/g,'');aplicar('origem',this.value)"></div><div class="filter-item limpar"><label>&nbsp;</label><button class="botao" type="button" onclick="document.querySelectorAll('.filter-box input').forEach(function(x){x.value='';});FILTROS={descricao:'',status:'',operacao:'',modelo:'',origem:'',canceladas:false};document.getElementById('filtroSomenteCanceladas').classList.remove('filtro-ativo');render();">Limpar</button></div></div></div>
 <div class="action-grid"><button class="botao" type="button" onclick="executar('acerto_w')">Offline<small>(acerto_w)</small></button><button class="botao" type="button" onclick="executar('consultarX')">Consultar<small>(consultarX)</small></button><button class="botao" type="button" onclick="executar('enviarX')">Enviar<small>(enviarX)</small></button><button class="botao" type="button" onclick="executar('acerto_v')">Normal<small>(acerto_v)</small></button><button class="botao" type="button" onclick="executar('cancelarX')">Cancelar<small>(cancelarX)</small></button><button class="botao" type="button" onclick="executar('inutilizarX')">Inutilizar<small>(inutilizarX)</small></button></div>
-<div class="mini-actions"><span class="text-link" onclick="executar('removercancelamento')">Remover Cancelamento</span></div>
+<div class="mini-actions"><span class="text-link desabilitado" aria-disabled="true">Remover Cancelamento</span><span id="filtroSomenteCanceladas" class="text-link" onclick="alternarSomenteCanceladas()">Somente Canceladas</span></div>
 </section>
 <section class="panel info-panel"><div class="info-card ok"><div class="label">Total de notas</div><div class="value" id="totalNotas">0</div></div><div class="info-card warn"><div class="label">Visíveis</div><div class="value" id="totalVisiveis">0</div></div><div class="info-card danger"><div class="label">Selecionadas</div><div class="value" id="totalSelecionadas">0</div></div><div class="info-card card-interromper" id="cardInterromper"><button id="botaoInterromper" class="botao botao-interromper" type="button" onclick="interromperConsulta()" disabled>Interromper</button></div><div class="info-card card-aguarde-consulta" id="cardAguardeConsulta" style="display:none"><div class="aguarde-consulta-animacao"><span></span><span></span><span></span></div><div class="aguarde-consulta-texto">Aguarde, consultando...</div><div class="aguarde-consulta-detalhe">Os servidores estão sendo consultados. Esta mensagem desaparecerá ao finalizar.</div></div><div class="info-card resultado-acoes" id="resultadoAcoes" style="display:none"><div class="resultado-acoes-tabela"><table><thead><tr><th>IDT</th><th>Ação</th><th>IDT</th><th>Ação</th></tr></thead><tbody id="resultadoAcoesBody"></tbody></table></div></div></section>
 </div>

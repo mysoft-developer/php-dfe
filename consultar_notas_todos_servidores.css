@@ -49,6 +49,7 @@
 
 .header-grid {
     grid-template-columns: minmax(0, 2fr) minmax(420px, 1fr);
+    align-items: stretch;
 }
 
 .title-row {
@@ -84,9 +85,14 @@
 
 .info-panel {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-rows: auto auto minmax(160px, 1fr);
+    grid-template-rows: auto auto;
+    align-content: space-between;
+    height: auto;
+}
+
+.info-panel.aguarde-ativo {
+    grid-template-rows: auto minmax(0, 1fr);
     align-content: stretch;
-    height: 100%;
 }
 
 .info-panel .info-card {
@@ -121,8 +127,11 @@
 
 .info-card.resultado-acoes {
     grid-column: 1 / -1;
-    min-height: 0;
+    height: 206px;
+    min-height: 206px;
+    max-height: 206px;
     padding: 12px 14px;
+    overflow: hidden;
 }
 
 .info-card.card-aguarde-consulta {
@@ -178,6 +187,7 @@
 }
 
 .resultado-acoes-tabela {
+    height: 174px;
     margin-top: 8px;
     overflow: hidden;
     border: 1px solid var(--line);
@@ -365,4 +375,15 @@
     .filter-grid-detalhes {
         grid-template-columns: 1fr;
     }
+}
+
+.text-link.filtro-ativo {
+    font-weight: 700;
+    color: #173c69;
+}
+
+.text-link.desabilitado {
+    color: #7e8da8;
+    cursor: not-allowed;
+    pointer-events: none;
 }
