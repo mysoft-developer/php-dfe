@@ -354,7 +354,7 @@ function obterCaminhoAutonfe(array $configuracao): string
 
 function prepararExecucaoAcao(array $configuracao, array $servidor, string $idt, string $modelo, string $acao): array
 {
-    $permitidas = ['consultarX', 'validarX', 'acerto_w', 'acerto_v', 'enviarX', 'cancelarX', 'inutilizarX', 'removercancelamento'];
+    $permitidas = ['consultarX', 'validarX', 'acerto_w', 'acerto_v', 'enviarX', 'gerarEnviar', 'cancelarX', 'inutilizarX', 'cancelarInutilizar', 'removercancelamento'];
     if (!in_array($acao, $permitidas, true)) {
         throw new RuntimeException('Ação inválida.');
     }
@@ -524,8 +524,10 @@ function obterOperacaoWrapper(string $acao): string
     $operacoes = [
         'consultarX' => 'consultar',
         'enviarX' => 'enviar',
+        'gerarEnviar' => 'gerarEnviar',
         'cancelarX' => 'cancelar',
         'inutilizarX' => 'inutilizar',
+        'cancelarInutilizar' => 'cancelarInutilizar',
         'removercancelamento' => 'cancelarinutilizar',
         'acerto_w' => 'gerar',
         'acerto_v' => 'gerar'
@@ -794,7 +796,7 @@ foreach ($servidores as $indice => $servidor) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Notas de Todos os Servidores</title>
-<link rel="stylesheet" href="consultar_notas_detalhes.css">
+<link rel="stylesheet" href="consultar_notas_detalhes.css?v=<?= (int) filemtime(__DIR__ . '/consultar_notas_detalhes.css') ?>">
 <link rel="stylesheet" href="consultar_notas_todos_servidores.css">
 <style>
 /* Ajuste manual das larguras da tabela de notas: altere somente estes valores. */
@@ -929,7 +931,7 @@ window.addEventListener('DOMContentLoaded',function(){document.getElementById('c
 <div class="filter-item botao-item"><label>&nbsp;</label><button class="botao" type="submit">Consultar</button></div>
 </form>
  <div class="filter-box" style="margin-top:14px"><div class="filter-grid-detalhes"><div class="filter-item filtro-descricao"><label>Descrição</label><input maxlength="100" oninput="aplicar('descricao',this.value)"></div><div class="filter-item grupo"><label>Grupo</label><input oninput="aplicar('grupo',this.value)"></div><div class="filter-item operacao"><label>Operação</label><input maxlength="1" oninput="this.value=this.value.toUpperCase();aplicar('operacao',this.value)"></div><div class="filter-item status"><label>Status</label><input maxlength="3" oninput="this.value=this.value.replace(/\D/g,'');aplicar('status',this.value)"></div><div class="filter-item serie"><label>Série</label><input maxlength="3" oninput="this.value=this.value.replace(/\D/g,'');aplicar('serie',this.value)"></div><div class="filter-item modelo"><label>Modelo</label><input maxlength="5" oninput="this.value=this.value.replace(/\D/g,'');aplicar('modelo',this.value)"></div><div class="filter-item origem"><label>Origem</label><input maxlength="3" oninput="this.value=this.value.replace(/\D/g,'');aplicar('origem',this.value)"></div><div class="filter-item limpar"><label>&nbsp;</label><button class="botao" type="button" onclick="document.querySelectorAll('.filter-box input').forEach(function(x){x.value='';});FILTROS={descricao:'',grupo:'',status:'',serie:'',operacao:'',modelo:'',origem:'',canceladas:false};document.getElementById('filtroSomenteCanceladas').classList.remove('filtro-ativo');render();">Limpar</button></div></div></div>
-<div class="action-grid"><button class="botao" type="button" onclick="executar('acerto_w')">Offline<small>(acerto_w)</small></button><button class="botao" type="button" onclick="executar('consultarX')">Consultar<small>(consultarX)</small></button><button class="botao" type="button" onclick="executar('enviarX')">Enviar<small>(enviarX)</small></button><button class="botao" type="button" onclick="executar('acerto_v')">Normal<small>(acerto_v)</small></button><button class="botao" type="button" onclick="executar('cancelarX')">Cancelar<small>(cancelarX)</small></button><button class="botao" type="button" onclick="executar('inutilizarX')">Inutilizar<small>(inutilizarX)</small></button></div>
+ <div class="action-grid"><button class="botao" type="button" onclick="executar('acerto_w')">Offline (65) &amp; Normal (55)<small>(acerto_w)</small></button><button class="botao" type="button" onclick="executar('consultarX')">Consultar<small>(consultarX)</small></button><button class="botao" type="button" onclick="executar('enviarX')">Enviar<small>(enviarX)</small></button><button class="botao" type="button" onclick="executar('gerarEnviar')">Gerar &amp; Enviar<small>(gerarEnviar Wrapper)</small></button><button class="botao" type="button" onclick="executar('acerto_v')">Normal<small>(acerto_v)</small></button><button class="botao" type="button" onclick="executar('cancelarX')">Cancelar<small>(cancelarX)</small></button><button class="botao" type="button" onclick="executar('inutilizarX')">Inutilizar<small>(inutilizarX)</small></button><button class="botao" type="button" onclick="executar('cancelarInutilizar')">Cancelar ou Inutilizar<small>(cancelarInutilizar Wrapper)</small></button></div>
 <div class="mini-actions"><span class="text-link desabilitado" aria-disabled="true">Remover Cancelamento</span><span id="filtroSomenteCanceladas" class="text-link" onclick="alternarSomenteCanceladas()">Somente Canceladas</span></div>
 </section>
 <section class="panel info-panel"><div class="info-card ok"><div class="label">Total de notas</div><div class="value" id="totalNotas">0</div></div><div class="info-card warn"><div class="label">Visíveis</div><div class="value" id="totalVisiveis">0</div></div><div class="info-card danger"><div class="label">Selecionadas</div><div class="value" id="totalSelecionadas">0</div></div><div class="info-card card-interromper" id="cardInterromper"><button id="botaoInterromper" class="botao botao-interromper" type="button" onclick="interromperConsulta()" disabled>Interromper</button></div><div class="info-card card-aguarde-consulta" id="cardAguardeConsulta" style="display:none"><div class="aguarde-consulta-animacao"><span></span><span></span><span></span></div><div class="aguarde-consulta-texto">Aguarde, consultando...</div><div class="aguarde-consulta-detalhe">Os servidores estão sendo consultados. Esta mensagem desaparecerá ao finalizar.</div></div><div class="info-card resultado-acoes" id="resultadoAcoes" style="display:none"><div class="resultado-acoes-tabela"><table><thead><tr><th>IDT</th><th>Ação</th><th>IDT</th><th>Ação</th></tr></thead><tbody id="resultadoAcoesBody"></tbody></table></div></div></section>
