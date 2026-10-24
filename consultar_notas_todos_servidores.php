@@ -150,16 +150,16 @@ function carregarServidores(): array
     return $servidores;
 }
 
-function nomeCampoOrigem(mysqli $conexao, string $database): string
+function nomeCampoOrigem(mysqli $conexao, string $database, string $tabelaNotas): string
 {
     $stmt = $conexao->prepare("SELECT column_name FROM information_schema.columns
-        WHERE table_schema = ? AND table_name = 'notas_fiscais'
+        WHERE table_schema = ? AND table_name = ?
         AND column_name IN ('empresa', 'origem')
         ORDER BY CASE column_name WHEN 'empresa' THEN 0 ELSE 1 END LIMIT 1");
     if ($stmt === false) {
         return 'origem';
     }
-    $stmt->bind_param('s', $database);
+    $stmt->bind_param('ss', $database, $tabelaNotas);
     $stmt->execute();
     $resultado = $stmt->get_result();
     $linha = $resultado ? $resultado->fetch_assoc() : null;
@@ -191,42 +191,71 @@ function ajustarPeriodo(string $inicio, string $fim): array
     return [$inicio, $fim];
 }
 
+function chaveNota(array $linha): string
+{
+    return implode('|', array_map(
+        static fn ($valor): string => strtolower(trim((string) $valor)),
+        [
+            $linha['idt'] ?? '',
+            $linha['origem'] ?? '',
+            $linha['serie'] ?? '',
+            $linha['modelo'] ?? ''
+        ]
+    ));
+}
+
 function carregarNotas(mysqli $conexao, string $database, string $dataInicio, string $dataFim): array
 {
     $databaseEscapado = str_replace('`', '``', $database);
-    $campoOrigem = str_replace('`', '``', nomeCampoOrigem($conexao, $database));
-    $sql = "SELECT a.idt, b.cancelado, b.emissao, b.hora, a.nota, a.serie,
-        a.modelo, a.origem, a.chave, a.operacao, a.status, a.status_descricao
-        FROM `{$databaseEscapado}`.`notas_fiscais_eletronicas` a
-        INNER JOIN `{$databaseEscapado}`.`notas_fiscais` b
-            ON a.idt = b.idt AND a.origem = b.`{$campoOrigem}`
-        WHERE a.status NOT IN (100, 150, 101, 155, 102)
-          AND b.emissao >= '{$dataInicio} 00:00:00'
-          AND b.emissao < DATE_ADD('{$dataFim}', INTERVAL 1 DAY)
-        ORDER BY b.emissao DESC, a.idt DESC";
-    $resultado = $conexao->query($sql);
-    if ($resultado === false) {
-        throw new RuntimeException('Erro ao consultar notas: ' . $conexao->error);
+    $erros = [];
+    $linhasPorChave = [];
+    $paresTabelas = [
+        ['eletronicas' => 'notas_fiscais_eletronicas', 'notas' => 'notas_fiscais'],
+        ['eletronicas' => 'nota_fiscal_eletronica', 'notas' => 'nota_fiscal']
+    ];
+
+    foreach ($paresTabelas as $tabelas) {
+        $tabelaEletronicas = $tabelas['eletronicas'];
+        $tabelaNotas = $tabelas['notas'];
+        $campoOrigem = str_replace('`', '``', nomeCampoOrigem($conexao, $database, $tabelaNotas));
+        $sql = "SELECT a.idt, b.cancelado, b.emissao, b.hora, a.nota, a.serie,
+            a.modelo, a.origem, a.chave, a.operacao, a.status, a.status_descricao
+            FROM `{$databaseEscapado}`.`{$tabelaEletronicas}` a
+            INNER JOIN `{$databaseEscapado}`.`{$tabelaNotas}` b
+                ON a.idt = b.idt AND a.origem = b.`{$campoOrigem}`
+            WHERE a.status NOT IN (100, 150, 101, 155, 102)
+              AND b.emissao >= '{$dataInicio} 00:00:00'
+              AND b.emissao < DATE_ADD('{$dataFim}', INTERVAL 1 DAY)
+            ORDER BY b.emissao DESC, a.idt DESC";
+        $resultado = $conexao->query($sql);
+        if ($resultado === false) {
+            $erros[] = $tabelaEletronicas . '/' . $tabelaNotas . ': ' . $conexao->error;
+            continue;
+        }
+        while ($linha = $resultado->fetch_assoc()) {
+            $nota = [
+                'idt' => (string) ($linha['idt'] ?? ''),
+                'cancelado' => (string) ($linha['cancelado'] ?? ''),
+                'emissao' => (string) ($linha['emissao'] ?? ''),
+                'hora' => (string) ($linha['hora'] ?? ''),
+                'nota' => (string) ($linha['nota'] ?? ''),
+                'serie' => (string) ($linha['serie'] ?? ''),
+                'modelo' => (string) ($linha['modelo'] ?? ''),
+                'origem' => (string) ($linha['origem'] ?? ''),
+                'chave' => (string) ($linha['chave'] ?? ''),
+                'operacao' => (string) ($linha['operacao'] ?? ''),
+                'status' => (string) ($linha['status'] ?? ''),
+                'descricao' => (string) ($linha['status_descricao'] ?? '')
+            ];
+            $linhasPorChave[chaveNota($nota)] = $nota;
+        }
+        $resultado->free();
     }
-    $linhas = [];
-    while ($linha = $resultado->fetch_assoc()) {
-        $linhas[] = [
-            'idt' => (string) ($linha['idt'] ?? ''),
-            'cancelado' => (string) ($linha['cancelado'] ?? ''),
-            'emissao' => (string) ($linha['emissao'] ?? ''),
-            'hora' => (string) ($linha['hora'] ?? ''),
-            'nota' => (string) ($linha['nota'] ?? ''),
-            'serie' => (string) ($linha['serie'] ?? ''),
-            'modelo' => (string) ($linha['modelo'] ?? ''),
-            'origem' => (string) ($linha['origem'] ?? ''),
-            'chave' => (string) ($linha['chave'] ?? ''),
-            'operacao' => (string) ($linha['operacao'] ?? ''),
-            'status' => (string) ($linha['status'] ?? ''),
-            'descricao' => (string) ($linha['status_descricao'] ?? '')
-        ];
+
+    if (count($linhasPorChave) > 0 || count($erros) < count($paresTabelas)) {
+        return array_values($linhasPorChave);
     }
-    $resultado->free();
-    return $linhas;
+    throw new RuntimeException('Erro ao consultar notas nas tabelas disponíveis: ' . implode(' | ', $erros));
 }
 
 function carregarNotasPorIdts(mysqli $conexao, string $database, array $idts): array
@@ -243,36 +272,52 @@ function carregarNotasPorIdts(mysqli $conexao, string $database, array $idts): a
     }
 
     $databaseEscapado = str_replace('`', '``', $database);
-    $campoOrigem = str_replace('`', '``', nomeCampoOrigem($conexao, $database));
-    $sql = "SELECT a.idt, b.cancelado, b.emissao, b.hora, a.nota, a.serie,
-        a.modelo, a.origem, a.chave, a.operacao, a.status, a.status_descricao
-        FROM `{$databaseEscapado}`.`notas_fiscais_eletronicas` a
-        INNER JOIN `{$databaseEscapado}`.`notas_fiscais` b
-            ON a.idt = b.idt AND a.origem = b.`{$campoOrigem}`
-        WHERE a.idt IN (" . implode(', ', $idtsEscapados) . ")";
-    $resultado = $conexao->query($sql);
-    if ($resultado === false) {
-        throw new RuntimeException('Erro ao consultar IDTs executados: ' . $conexao->error);
+    $erros = [];
+    $linhasPorChave = [];
+    $paresTabelas = [
+        ['eletronicas' => 'notas_fiscais_eletronicas', 'notas' => 'notas_fiscais'],
+        ['eletronicas' => 'nota_fiscal_eletronica', 'notas' => 'nota_fiscal']
+    ];
+
+    foreach ($paresTabelas as $tabelas) {
+        $tabelaEletronicas = $tabelas['eletronicas'];
+        $tabelaNotas = $tabelas['notas'];
+        $campoOrigem = str_replace('`', '``', nomeCampoOrigem($conexao, $database, $tabelaNotas));
+        $sql = "SELECT a.idt, b.cancelado, b.emissao, b.hora, a.nota, a.serie,
+            a.modelo, a.origem, a.chave, a.operacao, a.status, a.status_descricao
+            FROM `{$databaseEscapado}`.`{$tabelaEletronicas}` a
+            INNER JOIN `{$databaseEscapado}`.`{$tabelaNotas}` b
+                ON a.idt = b.idt AND a.origem = b.`{$campoOrigem}`
+            WHERE a.idt IN (" . implode(', ', $idtsEscapados) . ")";
+        $resultado = $conexao->query($sql);
+        if ($resultado === false) {
+            $erros[] = $tabelaEletronicas . '/' . $tabelaNotas . ': ' . $conexao->error;
+            continue;
+        }
+        while ($linha = $resultado->fetch_assoc()) {
+            $nota = [
+                'idt' => (string) ($linha['idt'] ?? ''),
+                'cancelado' => (string) ($linha['cancelado'] ?? ''),
+                'emissao' => (string) ($linha['emissao'] ?? ''),
+                'hora' => (string) ($linha['hora'] ?? ''),
+                'nota' => (string) ($linha['nota'] ?? ''),
+                'serie' => (string) ($linha['serie'] ?? ''),
+                'modelo' => (string) ($linha['modelo'] ?? ''),
+                'origem' => (string) ($linha['origem'] ?? ''),
+                'chave' => (string) ($linha['chave'] ?? ''),
+                'operacao' => (string) ($linha['operacao'] ?? ''),
+                'status' => (string) ($linha['status'] ?? ''),
+                'descricao' => (string) ($linha['status_descricao'] ?? '')
+            ];
+            $linhasPorChave[chaveNota($nota)] = $nota;
+        }
+        $resultado->free();
     }
-    $linhas = [];
-    while ($linha = $resultado->fetch_assoc()) {
-        $linhas[] = [
-            'idt' => (string) ($linha['idt'] ?? ''),
-            'cancelado' => (string) ($linha['cancelado'] ?? ''),
-            'emissao' => (string) ($linha['emissao'] ?? ''),
-            'hora' => (string) ($linha['hora'] ?? ''),
-            'nota' => (string) ($linha['nota'] ?? ''),
-            'serie' => (string) ($linha['serie'] ?? ''),
-            'modelo' => (string) ($linha['modelo'] ?? ''),
-            'origem' => (string) ($linha['origem'] ?? ''),
-            'chave' => (string) ($linha['chave'] ?? ''),
-            'operacao' => (string) ($linha['operacao'] ?? ''),
-            'status' => (string) ($linha['status'] ?? ''),
-            'descricao' => (string) ($linha['status_descricao'] ?? '')
-        ];
+
+    if (count($linhasPorChave) > 0 || count($erros) < count($paresTabelas)) {
+        return array_values($linhasPorChave);
     }
-    $resultado->free();
-    return $linhas;
+    throw new RuntimeException('Erro ao consultar IDTs executados nas tabelas disponíveis: ' . implode(' | ', $erros));
 }
 
 function montarComando(string $executavel, string $modelo, string $idt, string $acao, array $servidor, int $versaoMysql): string
@@ -848,7 +893,8 @@ function montarDataHoraNota(item){var emissao=String((item&&item.emissao)||'').t
 function montarClasseLinha(item){var classes=[];if(String(item.modelo||'')==='65')classes.push('linha-modelo-65');var dataHora=montarDataHoraNota(item);if(dataHora&&Math.abs(Date.now()-dataHora.getTime())<=(10*60*1000))classes.push('linha-alerta-horario');if(item.destacar_vermelho)classes.push('linha-problema');return classes.join(' ');}
 function deduplicarLinhas(){var vistos={};LINHAS=LINHAS.filter(function(x){var k=chave(x);if(vistos[k])return false;vistos[k]=true;return true;});}
 function atualizarContadores(){var vis=filtradas(); document.getElementById('totalNotas').textContent=LINHAS.length; document.getElementById('totalVisiveis').textContent=vis.length; document.getElementById('totalSelecionadas').textContent=SELECIONADAS.size;}
- function render(){var corpo=document.getElementById('corpoNotas'), linhas=filtradas(), html=''; linhas.forEach(function(x){var k=chave(x), checked=SELECIONADAS.has(k)?' checked':''; html+='<tr class="'+esc(montarClasseLinha(x))+'"><td class="col-selecao"><input class="check-nota" type="checkbox" data-chave="'+esc(k)+'"'+checked+'></td><td class="col-grupo">'+esc(x.grupo)+'</td><td class="col-servidor">'+esc(x.endereco)+'</td><td class="col-database">'+esc(x.database)+'</td><td class="col-idt">'+esc(x.idt)+'</td><td>'+esc(formatarDataBrasileira(x.cancelado))+'</td><td class="col-emissao">'+esc(formatarDataBrasileira(x.emissao))+'</td><td>'+esc(x.hora)+'</td><td>'+esc(x.nota)+'</td><td>'+esc(x.serie)+'</td><td>'+esc(x.modelo)+'</td><td>'+esc(x.origem)+'</td><td class="col-chave">'+esc(x.chave)+'</td><td>'+esc(x.operacao)+'</td><td>'+esc(x.status)+'</td><td class="col-descricao">'+esc(x.descricao)+'</td></tr>';}); corpo.innerHTML=html; atualizarContadores(); document.getElementById('mensagemVazia').style.display=linhas.length?'none':'flex';bloquearSelecaoDuranteAcoes(ACOES_EM_ANDAMENTO);}
+ function montarLinkOrigem(item){var origem=String(item&&item.origem||'').trim(),grupo=String(item&&item.grupo||'').trim();if(origem===''||grupo==='')return esc(origem);var url='consultar_emissores.php?grupo='+encodeURIComponent(grupo)+'&origem='+encodeURIComponent(origem);return '<a class="text-link" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(origem)+'</a>';}
+ function render(){var corpo=document.getElementById('corpoNotas'), linhas=filtradas(), html=''; linhas.forEach(function(x){var k=chave(x), checked=SELECIONADAS.has(k)?' checked':''; html+='<tr class="'+esc(montarClasseLinha(x))+'"><td class="col-selecao"><input class="check-nota" type="checkbox" data-chave="'+esc(k)+'"'+checked+'></td><td class="col-grupo">'+esc(x.grupo)+'</td><td class="col-servidor">'+esc(x.endereco)+'</td><td class="col-database">'+esc(x.database)+'</td><td class="col-idt">'+esc(x.idt)+'</td><td>'+esc(formatarDataBrasileira(x.cancelado))+'</td><td class="col-emissao">'+esc(formatarDataBrasileira(x.emissao))+'</td><td>'+esc(x.hora)+'</td><td>'+esc(x.nota)+'</td><td>'+esc(x.serie)+'</td><td>'+esc(x.modelo)+'</td><td>'+montarLinkOrigem(x)+'</td><td class="col-chave">'+esc(x.chave)+'</td><td>'+esc(x.operacao)+'</td><td>'+esc(x.status)+'</td><td class="col-descricao">'+esc(x.descricao)+'</td></tr>';}); corpo.innerHTML=html; atualizarContadores(); document.getElementById('mensagemVazia').style.display=linhas.length?'none':'flex';bloquearSelecaoDuranteAcoes(ACOES_EM_ANDAMENTO);}
  function status(t,c){var painel=document.querySelector('.status-consulta');if(painel){painel.classList.remove('status-ok','status-erro','status-andamento');painel.classList.add(c==='erro'?'status-erro':(c==='andamento'?'status-andamento':'status-ok'));}var s=document.getElementById('statusExecucao');if(s){s.textContent=t;s.classList.remove('status-mensagem-atualizada');void s.offsetWidth;s.classList.add('status-mensagem-atualizada');}var cardInterromper=document.getElementById('cardInterromper'),botaoInterromper=document.getElementById('botaoInterromper'),interromperAtivo=c==='andamento'&&(CONSULTA_EM_ANDAMENTO||ACOES_EM_ANDAMENTO);if(cardInterromper)cardInterromper.style.display='flex';if(botaoInterromper){botaoInterromper.disabled=!interromperAtivo;botaoInterromper.classList.toggle('interromper-ativo',interromperAtivo);}var e=document.getElementById('mensagemExecucaoBox');e.textContent=t;e.className='status-message '+(c||'ok');e.style.display=t?'block':'none';}
  function alternarCardAguarde(visivel){var card=document.getElementById('cardAguardeConsulta');if(card)card.style.display=visivel?'flex':'none';var painel=card?card.closest('.info-panel'):null;if(painel)painel.classList.toggle('aguarde-ativo',visivel);}
 function bloquearAcoesDuranteConsulta(bloquear){document.querySelectorAll('.actions-panel button').forEach(function(botao){botao.disabled=bloquear;botao.classList.toggle('botao-desabilitado',bloquear);});}
