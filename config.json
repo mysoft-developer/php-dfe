@@ -1,4 +1,11 @@
 {
+    "server_mysql": {
+        "host": "10.8.5.47",
+        "port": 3306,
+        "database": "mysoft",
+        "user": "mysoftweb",
+        "password": "g3108f88"
+    },
     "mysql_usuario": "mysoftweb",
     "mysql_senha": "g3108f88",
     "autonfe_wrapper_concorrencia": 15,
