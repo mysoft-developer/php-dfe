@@ -9,10 +9,5 @@
     "mysql_usuario": "mysoftweb",
     "mysql_senha": "g3108f88",
     "autonfe_wrapper_concorrencia": 15,
-    "autonfe_wrapper_url": "http://127.0.0.1/php2-dfe/autonfe-wrapper.php",
-    "autonfe": {
-        "windows": "D:\\developer\\lazarus-autonfe-2.6\\autonfe.exe",
-        "linux": "/home/ubuntu/nfe/autonfe_lnx",
-        "linux_arm": "/home/gerson/nfe/autonfe_arm"
-    }
+    "autonfe_wrapper_url": "http://127.0.0.1/php2-dfe/autonfe-wrapper.php"
 }
