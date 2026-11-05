@@ -105,8 +105,8 @@ try {
     );
     $servidores = $resultado->fetch_all(MYSQLI_ASSOC);
     $resultadoRegras = $banco->query(
-        'SELECT monitor_regra_id, ordem, operacao, status, status_descricao, acao, tolerancia_minutos, qtde '
-        . 'FROM monitor_regras ORDER BY ordem, monitor_regra_id'
+        'SELECT ordem, operacao, status, status_descricao, acao, tolerancia_minutos, qtde '
+        . 'FROM monitor_regras ORDER BY ordem'
     );
     $regras = $resultadoRegras->fetch_all(MYSQLI_ASSOC);
     $nomeTabela = 'monitor_status';
@@ -166,8 +166,8 @@ $servidores = array_values(array_filter(
         $logSisGb = tamanhoEmGb($servidor['log_sis'] ?? null);
         $quantidadeNotas = (int)($servidor['qtde'] ?? 0);
 
-        return ($logGb !== null && $logGb > 1)
-            || ($logSisGb !== null && $logSisGb > 1)
+        return ($logGb !== null && $logGb > 2)
+            || ($logSisGb !== null && $logSisGb > 2)
             || $quantidadeNotas > 1000;
     }
 ));
@@ -226,7 +226,7 @@ foreach ($servidores as $servidor) {
                 <h2>Servidores</h2>
                 <div class="rolagem" id="rolagem-servidores">
                     <?php if (!$servidores): ?>
-                        <p class="aviso">Nenhum servidor atende ao filtro (log &gt; 1 GB, log_sis &gt; 1 GB ou notas &gt; 1000; <?= escapar($totalServidores) ?> registro(s) avaliados).</p>
+                        <p class="aviso">Nenhum servidor atende ao filtro (log &gt; 2 GB, log_sis &gt; 2 GB ou notas &gt; 1000; <?= escapar($totalServidores) ?> registro(s) avaliados).</p>
                     <?php else: ?>
                         <table>
                             <thead>
@@ -253,9 +253,9 @@ foreach ($servidores as $servidor) {
                                         <td><?= escapar($servidor['porta']) ?></td>
                                         <td><?= escapar($servidor['database']) ?></td>
                                         <td><?= escapar($servidor['rede'] ?: 'N/A') ?></td>
-                                        <td class="<?= $logGb !== null && $logGb > 5 ? 'celula-alerta' : '' ?>"><?= exibirValorTabela($servidor['log']) ?></td>
-                                        <td class="<?= $logSisGb !== null && $logSisGb > 5 ? 'celula-alerta' : '' ?>"><?= exibirValorTabela($servidor['log_sis']) ?></td>
-                                        <td class="<?= $quantidadeNotas > 2000 ? 'celula-alerta' : '' ?>"><?= escapar($servidor['qtde'] ?? 'N/A') ?></td>
+                                        <td class="<?= $logGb !== null && $logGb > 2 ? 'celula-alerta' : '' ?>"><?= exibirValorTabela($servidor['log']) ?></td>
+                                        <td class="<?= $logSisGb !== null && $logSisGb > 2 ? 'celula-alerta' : '' ?>"><?= exibirValorTabela($servidor['log_sis']) ?></td>
+                                        <td class="<?= $quantidadeNotas > 1000 ? 'celula-alerta' : '' ?>"><?= escapar($servidor['qtde'] ?? 'N/A') ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -284,7 +284,7 @@ foreach ($servidores as $servidor) {
                             </thead>
                             <tbody>
                                 <?php foreach ($regras as $regra): ?>
-                                    <tr data-regra-id="<?= escapar($regra['monitor_regra_id']) ?>">
+                                    <tr data-regra-ordem="<?= escapar($regra['ordem']) ?>">
                                         <td><?= escapar($regra['ordem']) ?></td>
                                         <td><?= escapar($regra['operacao']) ?></td>
                                         <td><?= escapar($regra['status']) ?></td>
@@ -391,14 +391,23 @@ foreach ($servidores as $servidor) {
                         posicaoRolagemServidores = 0;
                     }
                     const valoresAnteriores = new Map();
-                    dadosAtuais.querySelectorAll('tr[data-regra-id]').forEach((linha) => {
+                    const linhaAnteriorAtiva = dadosAtuais.querySelector('tr.regra-alterada');
+                    let ordemRegraAtiva = cicloMudou || !linhaAnteriorAtiva
+                        ? null
+                        : linhaAnteriorAtiva.dataset.regraOrdem;
+                    dadosAtuais.querySelectorAll('tr[data-regra-ordem]').forEach((linha) => {
                         const valores = Array.from(linha.cells).map((celula) => celula.textContent.trim());
-                        valoresAnteriores.set(linha.dataset.regraId, valores.join('\u001f'));
+                        valoresAnteriores.set(linha.dataset.regraOrdem, valores.join('\u001f'));
                     });
-                    novosDados.querySelectorAll('tr[data-regra-id]').forEach((linha) => {
+                    novosDados.querySelectorAll('tr[data-regra-ordem]').forEach((linha) => {
                         const valores = Array.from(linha.cells).map((celula) => celula.textContent.trim());
-                        const chave = linha.dataset.regraId;
+                        const chave = linha.dataset.regraOrdem;
                         if (!valoresAnteriores.has(chave) || valoresAnteriores.get(chave) !== valores.join('\u001f')) {
+                            ordemRegraAtiva = chave;
+                        }
+                    });
+                    novosDados.querySelectorAll('tr[data-regra-ordem]').forEach((linha) => {
+                        if (ordemRegraAtiva !== null && linha.dataset.regraOrdem === ordemRegraAtiva) {
                             linha.classList.add('regra-alterada');
                         }
                     });
@@ -413,9 +422,6 @@ foreach ($servidores as $servidor) {
                                 : posicoesRolagem[indice].top;
                             area.scrollLeft = posicoesRolagem[indice].left;
                         }
-                    });
-                    novosDados.querySelectorAll('tr.regra-alterada').forEach((linha) => {
-                        window.setTimeout(() => linha.classList.remove('regra-alterada'), 4500);
                     });
                     sincronizarRolagemServidores();
                 }
