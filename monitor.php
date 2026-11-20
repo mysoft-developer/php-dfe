@@ -166,9 +166,9 @@ $servidores = array_values(array_filter(
         $logSisGb = tamanhoEmGb($servidor['log_sis'] ?? null);
         $quantidadeNotas = (int)($servidor['qtde'] ?? 0);
 
-        return ($logGb !== null && $logGb > 2)
-            || ($logSisGb !== null && $logSisGb > 2)
-            || $quantidadeNotas > 1000;
+        return ($logGb !== null && $logGb > 0.5)
+            || ($logSisGb !== null && $logSisGb > 0.5)
+            || $quantidadeNotas > 200;
     }
 ));
 
@@ -226,7 +226,7 @@ foreach ($servidores as $servidor) {
                 <h2>Servidores</h2>
                 <div class="rolagem" id="rolagem-servidores">
                     <?php if (!$servidores): ?>
-                        <p class="aviso">Nenhum servidor atende ao filtro (log &gt; 2 GB, log_sis &gt; 2 GB ou notas &gt; 1000; <?= escapar($totalServidores) ?> registro(s) avaliados).</p>
+                        <p class="aviso">Nenhum servidor atende ao filtro (log &gt; 500 MB, log_sis &gt; 500 MB ou notas &gt; 200; <?= escapar($totalServidores) ?> registro(s) avaliados).</p>
                     <?php else: ?>
                         <table>
                             <thead>
