@@ -1,3 +1,4 @@
 *.log
 cache_consultar_idt_servidores.json
 cache_consulta_emissores.json
+config.json

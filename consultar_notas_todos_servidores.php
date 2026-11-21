@@ -396,8 +396,251 @@ function interpretarRespostaWrapper(string $corpo, int $codigoHttp, string $erro
     return $resultado;
 }
 
-function executarAcoesWrapperConcorrentes(array $configuracao, array $servidores, array $linhas, string $acao): array
+function obterExecutorAcao(array $configuracao, string $acao): string
 {
+    $executores = $configuracao['autonfe_executor_por_acao'] ?? [];
+    if (!is_array($executores)) {
+        throw new RuntimeException('Configuração autonfe_executor_por_acao inválida no config.json.');
+    }
+    $executor = trim((string) ($executores[$acao] ?? 'wrapper'));
+    if (!in_array($executor, ['wrapper', 'lazarus_dfe'], true)) {
+        throw new RuntimeException('Executor inválido configurado para a ação ' . $acao . '.');
+    }
+    if (in_array($acao, ['acerto_w', 'acerto_v', 'cancelarInutilizar', 'removercancelamento'], true)
+        && $executor !== 'wrapper') {
+        throw new RuntimeException('A ação ' . $acao . ' deve continuar configurada para o wrapper.');
+    }
+    if ($executor === 'lazarus_dfe'
+        && !in_array($acao, ['consultarX', 'enviarX', 'gerarEnviar', 'cancelarX', 'inutilizarX'], true)) {
+        throw new RuntimeException('A ação ' . $acao . ' ainda não está disponível na API lazarus-dfe.');
+    }
+    return $executor;
+}
+
+function obterRotaLazarusDfe(string $acao): string
+{
+    $rotas = [
+        'consultarX' => '/api/v1/nfe/consultar',
+        'enviarX' => '/api/v1/nfe/enviar',
+        'cancelarX' => '/api/v1/nfe/cancelar',
+        'inutilizarX' => '/api/v1/nfe/inutilizar'
+    ];
+    if (!isset($rotas[$acao])) {
+        throw new RuntimeException('Ação sem rota direta na API lazarus-dfe: ' . $acao . '.');
+    }
+    return $rotas[$acao];
+}
+
+function interpretarRespostaLazarusDfe(
+    string $corpo,
+    int $codigoHttp,
+    string $erroCurl,
+    string $idt,
+    string $acao,
+    int $indiceServidor
+): array {
+    $resultadoBase = [
+        'i' => $indiceServidor,
+        'idt' => $idt,
+        'acao' => $acao,
+        'codigo_retorno' => -1,
+        'saida' => ''
+    ];
+    if ($erroCurl !== '') {
+        $resultadoBase['saida'] = $erroCurl;
+        return $resultadoBase;
+    }
+    $dados = json_decode($corpo, true);
+    if (!is_array($dados)) {
+        $resultadoBase['saida'] = 'Resposta inválida da API lazarus-dfe (HTTP ' . $codigoHttp . ').';
+        return $resultadoBase;
+    }
+    $item = $dados;
+    if (isset($dados['resultados']) && is_array($dados['resultados'])) {
+        $itemEncontrado = null;
+        foreach ($dados['resultados'] as $resultadoApi) {
+            if (is_array($resultadoApi) && (string) ($resultadoApi['idt'] ?? '') === $idt) {
+                $itemEncontrado = $resultadoApi;
+                break;
+            }
+        }
+        if ($itemEncontrado === null && count($dados['resultados']) === 1 && is_array($dados['resultados'][0])) {
+            $itemEncontrado = $dados['resultados'][0];
+        }
+        if ($itemEncontrado === null) {
+            $resultadoBase['saida'] = 'A API lazarus-dfe não retornou resultado para o IDT ' . $idt . '.';
+            return $resultadoBase;
+        }
+        $item = $itemEncontrado;
+    }
+    $sucesso = !empty($item['sucesso']) && $codigoHttp >= 200 && $codigoHttp < 300;
+    $mensagens = [];
+    $mensagem = trim((string) ($item[$sucesso ? 'mensagem' : 'detalhe'] ?? ''));
+    if ($mensagem === '' && !$sucesso) {
+        $mensagem = trim((string) ($item['mensagem'] ?? ''));
+    }
+    if ($mensagem !== '') {
+        $mensagens[] = $mensagem;
+    }
+    if (isset($dados['correlation_id']) && trim((string) $dados['correlation_id']) !== '') {
+        $mensagens[] = 'correlation_id: ' . trim((string) $dados['correlation_id']);
+        $resultadoBase['correlation_id'] = trim((string) $dados['correlation_id']);
+    } elseif (isset($item['correlation_id']) && trim((string) $item['correlation_id']) !== '') {
+        $mensagens[] = 'correlation_id: ' . trim((string) $item['correlation_id']);
+        $resultadoBase['correlation_id'] = trim((string) $item['correlation_id']);
+    }
+    $codigo = isset($item['codigo']) ? (int) $item['codigo'] : -1;
+    $resultadoBase['codigo_retorno'] = $sucesso ? 0 : ($codigo !== 0 ? $codigo : -1);
+    $resultadoBase['saida'] = implode("\n", $mensagens);
+    if (!$sucesso && trim((string) ($item['detalhe'] ?? '')) !== '') {
+        $resultadoBase['detalhe'] = trim((string) $item['detalhe']);
+    }
+    if ($sucesso) {
+        $retorno = $item;
+        unset($retorno['xml'], $retorno['detalhe']);
+        if (count($retorno) > 0) {
+            $resultadoBase['retorno'] = $retorno;
+        }
+    }
+    return $resultadoBase;
+}
+
+function chamarLazarusDfe(
+    array $configuracao,
+    array $servidor,
+    string $idt,
+    string $acao,
+    int $indiceServidor,
+    string $rota
+): array {
+    if (!function_exists('curl_init')) {
+        throw new RuntimeException('A extensão cURL não está habilitada no PHP.');
+    }
+    if (preg_match('/^[0-9]+$/', $idt) !== 1 || (float) $idt <= 0 || (float) $idt > 2147483647) {
+        throw new RuntimeException('IDT inválido para a API lazarus-dfe.');
+    }
+    $api = $configuracao['lazarus_dfe'] ?? [];
+    if (!is_array($api)) {
+        throw new RuntimeException('Configuração lazarus_dfe inválida no config.json.');
+    }
+    $urlBase = rtrim(trim((string) ($api['url_base'] ?? '')), '/');
+    $bearer = trim((string) ($api['bearer'] ?? ''));
+    $partesUrl = $urlBase !== '' ? parse_url($urlBase) : false;
+    if ($partesUrl === false
+        || !isset($partesUrl['scheme'], $partesUrl['host'])
+        || !in_array(strtolower((string) $partesUrl['scheme']), ['http', 'https'], true)
+        || isset($partesUrl['user'])
+        || isset($partesUrl['pass'])
+        || isset($partesUrl['query'])
+        || isset($partesUrl['fragment'])
+        || $bearer === ''
+        || preg_match('/[\r\n]/', $bearer) === 1) {
+        throw new RuntimeException('URL base ou Bearer da API lazarus-dfe não configurado no config.json.');
+    }
+    $payload = json_encode([
+        'idt' => (int) $idt,
+        'mysql' => [
+            'servidor' => (string) ($servidor['endereco'] ?? ''),
+            'basedados' => (string) ($servidor['database'] ?? ''),
+            'porta' => (int) ($servidor['porta'] ?? 3306),
+            'versao' => 5
+        ]
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    $curl = curl_init($urlBase . $rota);
+    if ($curl === false) {
+        throw new RuntimeException('Não foi possível iniciar a chamada à API lazarus-dfe.');
+    }
+    curl_setopt_array($curl, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . $bearer,
+            'Content-Type: application/json',
+            'Accept: application/json'
+        ],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 30,
+        CURLOPT_TIMEOUT => 900
+    ]);
+    $corpo = curl_exec($curl);
+    $erroCurl = $corpo === false ? (string) curl_error($curl) : '';
+    $codigoHttp = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+    curl_close($curl);
+    return interpretarRespostaLazarusDfe(
+        $corpo === false ? '' : (string) $corpo,
+        $codigoHttp,
+        $erroCurl,
+        $idt,
+        $acao,
+        $indiceServidor
+    );
+}
+
+function executarAcoesLazarusDfe(array $configuracao, array $servidores, array $linhas, string $acao): array
+{
+    $resultados = [];
+    foreach ($linhas as $linha) {
+        try {
+            $indice = (int) ($linha['i'] ?? -1);
+            $idt = trim((string) ($linha['idt'] ?? ''));
+            if (!isset($servidores[$indice])) {
+                throw new RuntimeException('Servidor inválido.');
+            }
+            $servidor = $servidores[$indice];
+            if ($acao === 'gerarEnviar') {
+                $geracao = chamarLazarusDfe(
+                    $configuracao,
+                    $servidor,
+                    $idt,
+                    $acao,
+                    $indice,
+                    '/api/v1/nfe/gerar'
+                );
+                if ((int) $geracao['codigo_retorno'] !== 0) {
+                    $geracao['saida'] = 'Geração falhou; envio não executado. ' . $geracao['saida'];
+                    $resultados[] = $geracao;
+                    continue;
+                }
+                $envio = chamarLazarusDfe(
+                    $configuracao,
+                    $servidor,
+                    $idt,
+                    $acao,
+                    $indice,
+                    '/api/v1/nfe/enviar'
+                );
+                $envio['saida'] = trim(
+                    'Geração concluída: ' . $geracao['saida'] . "\nEnvio: " . $envio['saida']
+                );
+                $resultados[] = $envio;
+                continue;
+            }
+            $resultados[] = chamarLazarusDfe(
+                $configuracao,
+                $servidor,
+                $idt,
+                $acao,
+                $indice,
+                obterRotaLazarusDfe($acao)
+            );
+        } catch (Throwable $e) {
+            $resultados[] = [
+                'i' => (int) ($linha['i'] ?? -1),
+                'idt' => (string) ($linha['idt'] ?? ''),
+                'acao' => $acao,
+                'codigo_retorno' => -1,
+                'saida' => $e->getMessage()
+            ];
+        }
+    }
+    return $resultados;
+}
+
+function executarAcoesConfiguradas(array $configuracao, array $servidores, array $linhas, string $acao): array
+{
+    if (obterExecutorAcao($configuracao, $acao) === 'lazarus_dfe') {
+        return executarAcoesLazarusDfe($configuracao, $servidores, $linhas, $acao);
+    }
     if (!function_exists('curl_multi_init')) {
         throw new RuntimeException('A extensão cURL não está habilitada no PHP.');
     }
@@ -542,7 +785,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['ajax_action'] ?? 
         if (!is_array($linhas) || count($linhas) === 0) {
             responderJson(['ok' => false, 'erro' => 'Selecione pelo menos uma nota.'], 400);
         }
-        $resultados = executarAcoesWrapperConcorrentes($configuracao, $servidores, $linhas, $acao);
+        $resultados = executarAcoesConfiguradas($configuracao, $servidores, $linhas, $acao);
         $acaoOk = true;
         foreach ($resultados as $resultado) {
             if ((int) ($resultado['codigo_retorno'] ?? -1) !== 0) {
@@ -716,12 +959,12 @@ function bloquearSelecaoDuranteAcoes(bloquear){document.querySelectorAll('.check
 function marcarTodos(valor){if(ACOES_EM_ANDAMENTO)return;filtradas().forEach(function(x){var k=chave(x);if(valor)SELECIONADAS.add(k);else SELECIONADAS.delete(k);});var topo=document.getElementById('checkTopo');if(topo)topo.checked=!!valor;render();}
 function limparSelecao(){SELECIONADAS.clear();var topo=document.getElementById('checkTopo');if(topo)topo.checked=false;render();}
   function renderizarAcoesAtivas(linhas,acao){var painel=document.getElementById('resultadoAcoes');var corpo=document.getElementById('resultadoAcoesBody');if(!painel||!corpo)return;linhas=Array.isArray(linhas)?linhas:[];var html='';for(var i=0;i<linhas.length;i+=2){var primeira=linhas[i],segunda=linhas[i+1];html+='<tr><td>'+esc(primeira.idt||'')+'</td><td>'+esc(acao||'')+'</td><td>'+(segunda?esc(segunda.idt||''):'')+'</td><td>'+(segunda?esc(acao||''):'')+'</td></tr>';}corpo.innerHTML=html;painel.style.display=linhas.length?'block':'none';}
-  function atualizarAcoesAtivas(item,acao,iniciou,concluidas,total){if(iniciou){ACOES_ATIVAS.push(item);}else{ACOES_ATIVAS=ACOES_ATIVAS.filter(function(x){return String(x.i)!==String(item.i)||String(x.idt)!==String(item.idt);});}renderizarAcoesAtivas(ACOES_ATIVAS,acao);status('Executando '+acao+': '+ACOES_ATIVAS.length+' wrapper(s) ativos | '+concluidas+'/'+total+' nota(s) processada(s).','andamento');}
-  function atualizarNotaConcluida(item,resultado,notaBanco){var atual=LINHAS.find(function(x){return String(x.i)===String(item.i)&&String(x.idt)===String(item.idt);});if(!atual)return;var chaveAtual=chave(atual),retorno=resultado&&resultado.retorno||{},atualizada=Object.assign({},atual,retorno,notaBanco||{});if(retorno.cancelamento!==undefined)atualizada.cancelado=retorno.cancelamento==null?'':String(retorno.cancelamento);if(atualizada.status_descricao!=null)atualizada.descricao=String(atualizada.status_descricao);if(terminais.indexOf(String(atualizada.status||''))!==-1){LINHAS=LINHAS.filter(function(x){return x!==atual;});SELECIONADAS.delete(chaveAtual);}else{var novaChave=chave(atualizada),indice=LINHAS.indexOf(atual);LINHAS[indice]=atualizada;SELECIONADAS.delete(chaveAtual);if(novaChave!==chaveAtual)SELECIONADAS.delete(novaChave);}render();}
+  function atualizarAcoesAtivas(item,acao,iniciou,concluidas,total){if(iniciou){ACOES_ATIVAS.push(item);}else{ACOES_ATIVAS=ACOES_ATIVAS.filter(function(x){return String(x.i)!==String(item.i)||String(x.idt)!==String(item.idt);});}renderizarAcoesAtivas(ACOES_ATIVAS,acao);status('Executando '+acao+': '+ACOES_ATIVAS.length+' solicitação(ões) ativa(s) | '+concluidas+'/'+total+' nota(s) processada(s).','andamento');}
+  function atualizarNotaConcluida(item,resultado,notaBanco){var atual=LINHAS.find(function(x){return String(x.i)===String(item.i)&&String(x.idt)===String(item.idt);});if(!atual)return;var chaveAtual=chave(atual),retorno=resultado&&resultado.retorno||{},atualizada=Object.assign({},atual,retorno,notaBanco||{});if(retorno.cancelamento!==undefined)atualizada.cancelado=retorno.cancelamento==null?'':String(retorno.cancelamento);if(atualizada.status_descricao!=null)atualizada.descricao=String(atualizada.status_descricao);if(resultado&&Number(resultado.codigo_retorno)!==0&&resultado.detalhe)atualizada.descricao=String(resultado.detalhe);if(terminais.indexOf(String(atualizada.status||''))!==-1){LINHAS=LINHAS.filter(function(x){return x!==atual;});SELECIONADAS.delete(chaveAtual);}else{var novaChave=chave(atualizada),indice=LINHAS.indexOf(atual);LINHAS[indice]=atualizada;SELECIONADAS.delete(chaveAtual);if(novaChave!==chaveAtual)SELECIONADAS.delete(novaChave);}render();}
   var terminais=['100','101','102','150','155'];
   async function atualizarNotaDoBanco(item,resultado){var url='consultar_notas_todos_servidores.php?ajax=1&i='+encodeURIComponent(item.i)+'&idts='+encodeURIComponent(JSON.stringify([item.idt]));try{var resposta=await fetch(url,{cache:'no-store',headers:{Accept:'application/json'}});var dados=await lerRespostaJson(resposta);if(!dados.ok)throw new Error(dados.erro||'Falha ao recarregar a nota.');var nota=(dados.linhas||[]).find(function(x){return String(x.i)===String(item.i)&&String(x.idt)===String(item.idt);});atualizarNotaConcluida(item,resultado,nota||null);return true;}catch(e){atualizarNotaConcluida(item,resultado,null);return false;}}
  function lerRespostaJson(resposta){return resposta.text().then(function(corpo){var textoResposta=String(corpo||'').trim();if(textoResposta==='')throw new Error('O servidor retornou uma resposta vazia (HTTP '+resposta.status+').');try{return JSON.parse(textoResposta);}catch(e){throw new Error('O servidor retornou uma resposta inválida (HTTP '+resposta.status+').');}});}
-   function executar(acao){if(CONSULTA_EM_ANDAMENTO||ACOES_EM_ANDAMENTO)return false;if(!SELECIONADAS.size){alert('Selecione pelo menos uma nota.');return false;}var selecionadas=LINHAS.filter(function(x){return SELECIONADAS.has(chave(x));});var tudoOk=true,concluidas=0,proxima=0,atualizacoesPendentes=[];ACOES_EM_ANDAMENTO=true;ACOES_INTERROMPIDAS=false;CONTROLADORES_ACAO=[];ACOES_ATIVAS=[];bloquearSelecaoDuranteAcoes(true);status('Preparando '+selecionadas.length+' nota(s), com até '+MAXIMO_WRAPPERS+' wrappers simultâneos...','andamento');document.querySelectorAll('.actions-panel button').forEach(function(b){b.disabled=true;});(async function(){async function processarFila(){while(proxima<selecionadas.length&&!ACOES_INTERROMPIDAS){var item=selecionadas[proxima++],controlador=typeof AbortController==='function'?new AbortController():null;if(controlador)CONTROLADORES_ACAO.push(controlador);atualizarAcoesAtivas(item,acao,true,concluidas,selecionadas.length);try{var opcoesAcao={method:'POST',body:new URLSearchParams({ajax_action:'1',acao:acao,linhas:JSON.stringify([item])}),headers:{Accept:'application/json'}};if(controlador)opcoesAcao.signal=controlador.signal;var resposta=await fetch('consultar_notas_todos_servidores.php',opcoesAcao);var dados=await lerRespostaJson(resposta);var resultado=(dados.resultados||[])[0]||null;if(!dados.ok||!resultado||Number(resultado.codigo_retorno)!==0){tudoOk=false;status('Ação '+acao+' com falha para IDT '+item.idt+': '+((resultado&&resultado.saida)||dados.erro||'erro não informado.'),'erro');}atualizacoesPendentes.push((function(itemAtual,resultadoAtual){return atualizarNotaDoBanco(itemAtual,resultadoAtual).then(function(ok){if(!ok){tudoOk=false;status('Ação concluída para IDT '+itemAtual.idt+', mas não foi possível recarregar seu status no banco.','erro');}});})(item,resultado));}catch(e){if(!(e&&e.name==='AbortError')){tudoOk=false;atualizacoesPendentes.push((function(itemAtual,erro){return atualizarNotaDoBanco(itemAtual,null).then(function(ok){if(!ok)status('Erro na ação '+acao+' para IDT '+itemAtual.idt+': '+(erro.message||'erro não informado.'),'erro');});})(item,e));}}finally{if(controlador)CONTROLADORES_ACAO=CONTROLADORES_ACAO.filter(function(x){return x!==controlador;});concluidas++;atualizarAcoesAtivas(item,acao,false,concluidas,selecionadas.length);}}}try{var quantidade=Math.min(MAXIMO_WRAPPERS,selecionadas.length);var trabalhadores=[];for(var i=0;i<quantidade;i++)trabalhadores.push(processarFila());await Promise.all(trabalhadores);await Promise.all(atualizacoesPendentes);limparSelecao();ACOES_ATIVAS=[];renderizarAcoesAtivas([],acao);if(ACOES_INTERROMPIDAS){status('Ações do AutoNFe interrompidas pelo usuário. As operações já iniciadas podem continuar no servidor.','erro');}else{status('Ação '+acao+' concluída para '+concluidas+'/'+selecionadas.length+' nota(s).',tudoOk?'ok':'erro');}}catch(e){status('Erro ao executar a ação: '+(e.message||'erro não informado.'),'erro');}finally{CONTROLADORES_ACAO=[];ACOES_EM_ANDAMENTO=false;bloquearSelecaoDuranteAcoes(false);document.querySelectorAll('.actions-panel button').forEach(function(b){b.disabled=false;});}})();return false;}
+   function executar(acao){if(CONSULTA_EM_ANDAMENTO||ACOES_EM_ANDAMENTO)return false;if(!SELECIONADAS.size){alert('Selecione pelo menos uma nota.');return false;}var selecionadas=LINHAS.filter(function(x){return SELECIONADAS.has(chave(x));});var tudoOk=true,concluidas=0,proxima=0,atualizacoesPendentes=[];ACOES_EM_ANDAMENTO=true;ACOES_INTERROMPIDAS=false;CONTROLADORES_ACAO=[];ACOES_ATIVAS=[];bloquearSelecaoDuranteAcoes(true);status('Preparando '+selecionadas.length+' nota(s), com até '+MAXIMO_WRAPPERS+' operações simultâneas...','andamento');document.querySelectorAll('.actions-panel button').forEach(function(b){b.disabled=true;});(async function(){async function processarFila(){while(proxima<selecionadas.length&&!ACOES_INTERROMPIDAS){var item=selecionadas[proxima++],controlador=typeof AbortController==='function'?new AbortController():null;if(controlador)CONTROLADORES_ACAO.push(controlador);atualizarAcoesAtivas(item,acao,true,concluidas,selecionadas.length);try{var opcoesAcao={method:'POST',body:new URLSearchParams({ajax_action:'1',acao:acao,linhas:JSON.stringify([item])}),headers:{Accept:'application/json'}};if(controlador)opcoesAcao.signal=controlador.signal;var resposta=await fetch('consultar_notas_todos_servidores.php',opcoesAcao);var dados=await lerRespostaJson(resposta);var resultado=(dados.resultados||[])[0]||null;if(!dados.ok||!resultado||Number(resultado.codigo_retorno)!==0){tudoOk=false;status('Ação '+acao+' com falha para IDT '+item.idt+': '+((resultado&&resultado.saida)||dados.erro||'erro não informado.'),'erro');}atualizacoesPendentes.push((function(itemAtual,resultadoAtual){return atualizarNotaDoBanco(itemAtual,resultadoAtual).then(function(ok){if(!ok){tudoOk=false;status('Ação concluída para IDT '+itemAtual.idt+', mas não foi possível recarregar seu status no banco.','erro');}});})(item,resultado));}catch(e){if(!(e&&e.name==='AbortError')){tudoOk=false;atualizacoesPendentes.push((function(itemAtual,erro){return atualizarNotaDoBanco(itemAtual,null).then(function(ok){if(!ok)status('Erro na ação '+acao+' para IDT '+itemAtual.idt+': '+(erro.message||'erro não informado.'),'erro');});})(item,e));}}finally{if(controlador)CONTROLADORES_ACAO=CONTROLADORES_ACAO.filter(function(x){return x!==controlador;});concluidas++;atualizarAcoesAtivas(item,acao,false,concluidas,selecionadas.length);}}}try{var quantidade=Math.min(MAXIMO_WRAPPERS,selecionadas.length);var trabalhadores=[];for(var i=0;i<quantidade;i++)trabalhadores.push(processarFila());await Promise.all(trabalhadores);await Promise.all(atualizacoesPendentes);limparSelecao();ACOES_ATIVAS=[];renderizarAcoesAtivas([],acao);if(ACOES_INTERROMPIDAS){status('Ações do AutoNFe interrompidas pelo usuário. As operações já iniciadas podem continuar no servidor.','erro');}else{status('Ação '+acao+' concluída para '+concluidas+'/'+selecionadas.length+' nota(s).',tudoOk?'ok':'erro');}}catch(e){status('Erro ao executar a ação: '+(e.message||'erro não informado.'),'erro');}finally{CONTROLADORES_ACAO=[];ACOES_EM_ANDAMENTO=false;bloquearSelecaoDuranteAcoes(false);document.querySelectorAll('.actions-panel button').forEach(function(b){b.disabled=false;});}})();return false;}
 window.addEventListener('change',function(e){if(!e.target.classList.contains('check-nota'))return;if(ACOES_EM_ANDAMENTO){e.target.checked=!e.target.checked;return;}var k=e.target.getAttribute('data-chave');if(e.target.checked)SELECIONADAS.add(k);else SELECIONADAS.delete(k);atualizarContadores();});
 window.addEventListener('DOMContentLoaded',function(){document.getElementById('checkTopo').addEventListener('change',function(){marcarTodos(this.checked);});if(EXECUTAR_CONSULTA){var url=new URL(window.location.href);url.searchParams.delete('consultar');window.history.replaceState({},document.title,url.toString());consultar();}});
 </script>

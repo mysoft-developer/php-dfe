@@ -1,0 +1,28 @@
+{
+    "server_mysql": {
+        "host": "HOST_MYSQL_CENTRAL",
+        "port": 3306,
+        "database": "BANCO_CENTRAL",
+        "user": "USUARIO_MYSQL_CENTRAL",
+        "password": "SENHA_MYSQL_CENTRAL"
+    },
+    "mysql_usuario": "USUARIO_MYSQL_NOTAS",
+    "mysql_senha": "SENHA_MYSQL_NOTAS",
+    "autonfe_wrapper_concorrencia": 10,
+    "autonfe_wrapper_url": "http://localhost/php2-dfe/autonfe-wrapper.php",
+    "lazarus_dfe": {
+        "url_base": "https://SEU_APACHE/dfe",
+        "bearer": "PREENCHER_COM_TOKEN_DA_API"
+    },
+    "autonfe_executor_por_acao": {
+        "consultarX": "lazarus_dfe",
+        "enviarX": "lazarus_dfe",
+        "gerarEnviar": "lazarus_dfe",
+        "acerto_w": "wrapper",
+        "acerto_v": "wrapper",
+        "cancelarX": "lazarus_dfe",
+        "inutilizarX": "lazarus_dfe",
+        "cancelarInutilizar": "wrapper",
+        "removercancelamento": "wrapper"
+    }
+}
