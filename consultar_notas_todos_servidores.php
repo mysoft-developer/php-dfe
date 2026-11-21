@@ -406,12 +406,12 @@ function obterExecutorAcao(array $configuracao, string $acao): string
     if (!in_array($executor, ['wrapper', 'lazarus_dfe'], true)) {
         throw new RuntimeException('Executor inválido configurado para a ação ' . $acao . '.');
     }
-    if (in_array($acao, ['acerto_w', 'acerto_v', 'cancelarInutilizar', 'removercancelamento'], true)
+    if (in_array($acao, ['cancelarInutilizar', 'removercancelamento'], true)
         && $executor !== 'wrapper') {
         throw new RuntimeException('A ação ' . $acao . ' deve continuar configurada para o wrapper.');
     }
     if ($executor === 'lazarus_dfe'
-        && !in_array($acao, ['consultarX', 'enviarX', 'gerarEnviar', 'cancelarX', 'inutilizarX'], true)) {
+        && !in_array($acao, ['consultarX', 'enviarX', 'acerto_w', 'acerto_v', 'gerarEnviar', 'cancelarX', 'inutilizarX'], true)) {
         throw new RuntimeException('A ação ' . $acao . ' ainda não está disponível na API lazarus-dfe.');
     }
     return $executor;
@@ -420,6 +420,8 @@ function obterExecutorAcao(array $configuracao, string $acao): string
 function obterRotaLazarusDfe(string $acao): string
 {
     $rotas = [
+        'acerto_w' => '/api/v1/nfe/gerar',
+        'acerto_v' => '/api/v1/nfe/gerar',
         'consultarX' => '/api/v1/nfe/consultar',
         'enviarX' => '/api/v1/nfe/enviar',
         'cancelarX' => '/api/v1/nfe/cancelar',
@@ -492,6 +494,9 @@ function interpretarRespostaLazarusDfe(
     $codigo = isset($item['codigo']) ? (int) $item['codigo'] : -1;
     $resultadoBase['codigo_retorno'] = $sucesso ? 0 : ($codigo !== 0 ? $codigo : -1);
     $resultadoBase['saida'] = implode("\n", $mensagens);
+    if (!$sucesso && $codigo === 5) {
+        $resultadoBase['codigo_erro_api'] = $codigo;
+    }
     if (!$sucesso && trim((string) ($item['detalhe'] ?? '')) !== '') {
         $resultadoBase['detalhe'] = trim((string) $item['detalhe']);
     }
@@ -537,8 +542,10 @@ function chamarLazarusDfe(
         || preg_match('/[\r\n]/', $bearer) === 1) {
         throw new RuntimeException('URL base ou Bearer da API lazarus-dfe não configurado no config.json.');
     }
-    $payload = json_encode([
-        'idt' => (int) $idt,
+    $identificador = in_array($acao, ['acerto_w', 'acerto_v'], true)
+        ? ['idts' => [(int) $idt]]
+        : ['idt' => (int) $idt];
+    $payload = json_encode($identificador + [
         'mysql' => [
             'servidor' => (string) ($servidor['endereco'] ?? ''),
             'basedados' => (string) ($servidor['database'] ?? ''),
@@ -960,7 +967,9 @@ function marcarTodos(valor){if(ACOES_EM_ANDAMENTO)return;filtradas().forEach(fun
 function limparSelecao(){SELECIONADAS.clear();var topo=document.getElementById('checkTopo');if(topo)topo.checked=false;render();}
   function renderizarAcoesAtivas(linhas,acao){var painel=document.getElementById('resultadoAcoes');var corpo=document.getElementById('resultadoAcoesBody');if(!painel||!corpo)return;linhas=Array.isArray(linhas)?linhas:[];var html='';for(var i=0;i<linhas.length;i+=2){var primeira=linhas[i],segunda=linhas[i+1];html+='<tr><td>'+esc(primeira.idt||'')+'</td><td>'+esc(acao||'')+'</td><td>'+(segunda?esc(segunda.idt||''):'')+'</td><td>'+(segunda?esc(acao||''):'')+'</td></tr>';}corpo.innerHTML=html;painel.style.display=linhas.length?'block':'none';}
   function atualizarAcoesAtivas(item,acao,iniciou,concluidas,total){if(iniciou){ACOES_ATIVAS.push(item);}else{ACOES_ATIVAS=ACOES_ATIVAS.filter(function(x){return String(x.i)!==String(item.i)||String(x.idt)!==String(item.idt);});}renderizarAcoesAtivas(ACOES_ATIVAS,acao);status('Executando '+acao+': '+ACOES_ATIVAS.length+' solicitação(ões) ativa(s) | '+concluidas+'/'+total+' nota(s) processada(s).','andamento');}
-  function atualizarNotaConcluida(item,resultado,notaBanco){var atual=LINHAS.find(function(x){return String(x.i)===String(item.i)&&String(x.idt)===String(item.idt);});if(!atual)return;var chaveAtual=chave(atual),retorno=resultado&&resultado.retorno||{},atualizada=Object.assign({},atual,retorno,notaBanco||{});if(retorno.cancelamento!==undefined)atualizada.cancelado=retorno.cancelamento==null?'':String(retorno.cancelamento);if(atualizada.status_descricao!=null)atualizada.descricao=String(atualizada.status_descricao);if(resultado&&Number(resultado.codigo_retorno)!==0&&resultado.detalhe)atualizada.descricao=String(resultado.detalhe);if(terminais.indexOf(String(atualizada.status||''))!==-1){LINHAS=LINHAS.filter(function(x){return x!==atual;});SELECIONADAS.delete(chaveAtual);}else{var novaChave=chave(atualizada),indice=LINHAS.indexOf(atual);LINHAS[indice]=atualizada;SELECIONADAS.delete(chaveAtual);if(novaChave!==chaveAtual)SELECIONADAS.delete(novaChave);}render();}
+  function atualizarNotaConcluida(item,resultado,notaBanco){var atual=LINHAS.find(function(x){return String(x.i)===String(item.i)&&String(x.idt)===String(item.idt);});if(!atual)return;var chaveAtual=chave(atual),retorno=resultado&&resultado.retorno||{},atualizada=Object.assign({},atual,retorno,notaBanco||{});if(retorno.cancelamento!==undefined)atualizada.cancelado=retorno.cancelamento==null?'':String(retorno.cancelamento);if(atualizada.status_descricao!=null)atualizada.descricao=String(atualizada.status_descricao);if(resultado&&Number(resultado.codigo_retorno)!==0&&resultado.detalhe)atualizada.descricao=String(resultado.detalhe);if(terminais.indexOf(String(atualizada.status||''))!==-1){LINHAS=LINHAS.filter(function(x){return x!==atual;});SELECIONADAS.delete(chaveAtual);}else{
+    if(resultado&&resultado.codigo_erro_api===5){atualizada.status='5';atualizada.operacao='X';}
+    var novaChave=chave(atualizada),indice=LINHAS.indexOf(atual);LINHAS[indice]=atualizada;SELECIONADAS.delete(chaveAtual);if(novaChave!==chaveAtual)SELECIONADAS.delete(novaChave);}render();}
   var terminais=['100','101','102','150','155'];
   async function atualizarNotaDoBanco(item,resultado){var url='consultar_notas_todos_servidores.php?ajax=1&i='+encodeURIComponent(item.i)+'&idts='+encodeURIComponent(JSON.stringify([item.idt]));try{var resposta=await fetch(url,{cache:'no-store',headers:{Accept:'application/json'}});var dados=await lerRespostaJson(resposta);if(!dados.ok)throw new Error(dados.erro||'Falha ao recarregar a nota.');var nota=(dados.linhas||[]).find(function(x){return String(x.i)===String(item.i)&&String(x.idt)===String(item.idt);});atualizarNotaConcluida(item,resultado,nota||null);return true;}catch(e){atualizarNotaConcluida(item,resultado,null);return false;}}
  function lerRespostaJson(resposta){return resposta.text().then(function(corpo){var textoResposta=String(corpo||'').trim();if(textoResposta==='')throw new Error('O servidor retornou uma resposta vazia (HTTP '+resposta.status+').');try{return JSON.parse(textoResposta);}catch(e){throw new Error('O servidor retornou uma resposta inválida (HTTP '+resposta.status+').');}});}
