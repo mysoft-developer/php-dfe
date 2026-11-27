@@ -30,7 +30,7 @@ if ((isset($_GET['ajax_grupos']) && (string)$_GET['ajax_grupos'] === '1') ||
     });
 }
 
-$hostMysqlCentral = '10.8.0.6';
+$hostMysqlCentral = '10.8.5.47';
 $portaMysqlCentral = 3306;
 $bancoMysqlCentral = 'mysoft';
 $usuarioMysql = 'mysoftweb';
@@ -682,7 +682,7 @@ if ($origemFiltroInicial !== '') {
             <section class="telemetry">
                 <div class="panel metric">
                     <div class="label">Base central</div>
-                    <div class="value" style="font-size: 20px;">10.8.0.6</div>
+                    <div class="value" style="font-size: 20px;">10.8.5.47</div>
                     <div class="hint">mysoft / tabela servidores</div>
                 </div>
                 <div class="panel metric ok">

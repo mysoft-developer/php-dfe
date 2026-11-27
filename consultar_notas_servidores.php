@@ -71,7 +71,7 @@ function lerJsonArquivo(string $arquivo, string $rotulo): array
     return $dados;
 }
 
-const SERVIDORES_TABELA_HOST = '10.8.0.6';
+const SERVIDORES_TABELA_HOST = '10.8.5.47';
 const SERVIDORES_TABELA_PORTA = 3306;
 const SERVIDORES_TABELA_USUARIO = 'mysoftweb';
 const SERVIDORES_TABELA_SENHA = 'g3108f88';
